@@ -78,7 +78,7 @@ TEXTS = {
     'all_projects': {
         'en': 'All projects in the hub',
         'es': 'Todos los proyectos del hub'},
-    'projects': {'en': 'Projects', 'es': 'Proyectos'},
+    'projects': {'en': 'Select the projects', 'es': 'Selecciona los proyectos'},
     'scanning': {
         'en': 'Scanning project {}...\n{} files found',
         'es': 'Rastreando el proyecto {}...\n{} ficheros encontrados'},
