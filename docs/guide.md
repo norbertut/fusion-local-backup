@@ -59,9 +59,7 @@ You can click **Cancel** at any time. The script finishes the design it has open
 
 When it finishes, a summary appears:
 
-![Final summary of a backup](img/resumen.png)
-
-*This screenshot was taken with Fusion in Spanish.*
+![Final summary of a backup](img/summary-en.jpg)
 
 ## What you will find in the destination folder
 
