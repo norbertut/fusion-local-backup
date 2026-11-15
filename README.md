@@ -37,10 +37,12 @@ The "Export again even if up to date" box forces everything selected to be regen
 
 ## How long it takes
 
-Rough figures, measured on one particular computer and connection:
+There is no figure that holds for everyone: it depends on how powerful the computer is, on the connection and on the size of the designs.
 
-- **First backup of a project:** every design has to be opened once. A project with 177 files (169 designs, 106 MB) took 20 minutes, about 7 seconds per design. A project with over a thousand files is a matter of a couple of hours; best left to run on its own.
-- **Later backups:** only the projects are scanned and the changed designs opened. The same 177-file project, unchanged, is checked in under a minute.
+- **First backup of a project:** this is the slow one, because every design has to be opened once, and each takes several seconds. A project with hundreds of files can take quite a while, and one with thousands, hours; best left to run on its own. If you cancel it, the next run carries on where it stopped.
+- **Later backups:** these are quick, because only the projects are scanned and the new or changed designs opened.
+
+The log and the final message show how long each run took, so after the first backup you will know what to expect on your computer.
 
 ## Known limitations
 

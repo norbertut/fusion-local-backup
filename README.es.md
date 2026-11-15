@@ -37,10 +37,12 @@ La casilla "Exportar de nuevo aunque esté al día" fuerza a regenerar todo lo s
 
 ## Cuánto tarda
 
-Datos orientativos, medidos en un equipo y una conexión concretos:
+No hay una cifra válida para todos: depende de la potencia del ordenador, de la conexión y del tamaño de los diseños.
 
-- **Primera copia de un proyecto:** hay que abrir cada diseño una vez. Un proyecto de 177 ficheros (169 diseños, 106 MB) tardó 20 minutos, unos 7 segundos por diseño. Un proyecto de más de mil ficheros es cosa de un par de horas; conviene dejarlo trabajando solo.
-- **Copias siguientes:** solo se rastrean los proyectos y se abren los diseños modificados. El mismo proyecto de 177 ficheros, sin cambios, se revisa en menos de un minuto.
+- **Primera copia de un proyecto:** es la lenta, porque hay que abrir cada diseño una vez, y cada uno lleva varios segundos. Un proyecto con cientos de ficheros puede tardar bastante rato y uno con miles, horas; conviene dejarlo trabajando solo. Si lo cancelas, la siguiente ejecución continúa donde se quedó.
+- **Copias siguientes:** son rápidas, porque solo se rastrean los proyectos y se abren los diseños nuevos o modificados.
+
+El registro y el mensaje final indican la duración de cada ejecución, así que tras la primera copia sabrás qué esperar en tu equipo.
 
 ## Limitaciones conocidas
 
