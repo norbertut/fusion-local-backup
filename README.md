@@ -4,6 +4,8 @@
 
 A script for Autodesk Fusion that keeps a local copy of your designs: it takes them out of the cloud and saves them to your disk as F3D/F3Z and STEP.
 
+New here? The **[user guide](docs/guide.md)** walks you through installation, the first backup and keeping it current.
+
 ## What it does
 
 - **Formats:** Fusion archive (F3D, or F3Z when the design has external references) and STEP.

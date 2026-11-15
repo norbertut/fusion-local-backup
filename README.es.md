@@ -4,6 +4,8 @@
 
 Script para Autodesk Fusion que guarda una copia local de tus diseños: los saca de la nube a tu disco en F3D/F3Z y STEP.
 
+¿Primera vez? La **[guía de uso](docs/guia.md)** explica paso a paso la instalación, la primera copia y cómo mantenerla al día.
+
 ## Qué hace
 
 - **Formatos:** archivo de Fusion (F3D, o F3Z si el diseño tiene referencias externas) y STEP.
