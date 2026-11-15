@@ -9,11 +9,12 @@ A script for Autodesk Fusion that keeps a local copy of your designs: it takes t
 - **Formats:** Fusion archive (F3D, or F3Z when the design has external references) and STEP.
 - **Scope:** tick the projects you want to back up, or all the projects in the active hub. The script remembers your selection, so the next backup is open and OK.
 - **Structure:** mirrors `Hub / Project / Folders / Design` on disk.
-- **Log:** when it finishes it saves an `export_log_DATE.csv` with the result for each file.
+- **Log:** when it finishes it saves an `export_log_DATE.csv` with the result for each file and the total duration.
 - **Incremental:** an index file in the destination folder (`fusion-local-backup.json`) records which version of each design was exported, per format. Later runs only open and export designs that are new or have changed, so keep using the same destination folder. Only the latest version is kept on disk.
 - **Renames and moves:** designs are tracked by their Fusion id, so if you rename or move one in Fusion its local files are moved instead of duplicated.
 - **Nothing is deleted:** a design removed from Fusion is reported in the log as "not in cloud" and its local copy is kept.
 - **Outdated references:** when an assembly uses an older version of a linked part, the log says which one.
+- **F3Z in the background:** Autodesk packs each F3Z in the cloud, which takes tens of seconds. The script requests it, moves on to the next design and puts each F3Z in place when it arrives, with at most 5 requests on their way.
 - **Safe writes:** each file is exported to a temporary folder and moved when complete, so an interrupted run never leaves a half-written file in place.
 - **Language:** the interface is in Spanish when Fusion runs in Spanish, and in English otherwise.
 
@@ -27,9 +28,19 @@ A script for Autodesk Fusion that keeps a local copy of your designs: it takes t
 ## Usage
 
 1. Run the script from the scripts list.
-2. Tick the projects to back up, or "All projects in the hub".
+2. Under "Select the projects", tick the ones to back up, or tick "All projects in the hub".
 3. Tick the formats and set the destination folder. The script remembers the last folder you used.
-4. Click OK and let Fusion work. It first scans the projects, showing how many files it has found, and then opens, exports and closes each design that needs it.
+4. Click OK and let Fusion work. It first scans the projects, showing how many files it has found, and then opens, exports and closes each design that needs it. At the end it waits for any F3Z still on its way.
+5. To keep the backup current, run it again with the same destination folder: it only exports what is new or changed.
+
+The "Export again even if up to date" box forces everything selected to be regenerated. You can cancel at any time: what has been exported is recorded and the next run carries on from there.
+
+## How long it takes
+
+Rough figures, measured on one particular computer and connection:
+
+- **First backup of a project:** every design has to be opened once. A project with 177 files (169 designs, 106 MB) took 20 minutes, about 7 seconds per design. A project with over a thousand files is a matter of a couple of hours; best left to run on its own.
+- **Later backups:** only the projects are scanned and the changed designs opened. The same 177-file project, unchanged, is checked in under a minute.
 
 ## Known limitations
 
@@ -37,11 +48,10 @@ A script for Autodesk Fusion that keeps a local copy of your designs: it takes t
 - Only 3D designs (`.f3d`) are exported. Drawings, electronics and other files are skipped and noted in the log.
 - "All projects" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.
 - **F3Z relies on an undocumented command.** Fusion's public API cannot export F3Z, so the script uses the `data.fileExport` text command. It works (the resulting F3Z has been re-imported into Fusion with its links intact), but an update could break it. If it fails, the error is logged and the STEP is still exported.
-- **Each F3Z triggers an email from Autodesk.** The F3Z is packaged in Autodesk's cloud, which sends an "is ready to be downloaded" email for each one. You do not need that link: the file is already saved in the destination folder. F3D and STEP exports send no email.
+- **Each F3Z triggers an email from Autodesk.** The F3Z is packaged in Autodesk's cloud, which sends an "is ready to be downloaded" email for each one. You do not need that link: the file is already saved in the destination folder. F3D and STEP exports send no email. If you have many assemblies, set up a mail filter for those messages.
 - **Assemblies duplicate content.** When you export a project with assemblies you get the F3D of each linked part and also the assembly's F3Z, which already contains those same parts. This is expected: each design is available on its own and the assembly is complete in a single file.
 - **Assemblies are saved as they are.** An F3Z packs the version of each linked part that the assembly is pinned to, not the latest one. It is exported again when the assembly itself gets a new version, that is, after you open it, accept the update and save.
-- Reading version numbers from the cloud takes time: roughly 40 seconds per 100 files. It is still far quicker than opening every design.
-- A destination folder exported with an earlier version of the script has no index, so the first incremental run exports everything once.
+- Always use the same destination folder. If you pick another one, or a folder without the index file, a new full backup is made.
 - STEP files only include visible bodies.
 
 ## Roadmap
