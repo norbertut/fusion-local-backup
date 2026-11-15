@@ -24,6 +24,7 @@ import datetime
 import json
 import os
 import re
+import shutil
 import time
 import traceback
 import zipfile
@@ -43,8 +44,10 @@ ID_BROWSE = 'browse'
 ID_FORCE = 'forceExport'
 ID_INFO = 'info'
 
-# Maximum seconds to wait for Fusion to finish writing an F3Z.
-F3Z_TIMEOUT = 300
+# Maximum seconds to wait for an F3Z requested from Autodesk.
+F3Z_TIMEOUT = 600
+# F3Z requests allowed to be on their way at the same time.
+MAX_PENDING_F3Z = 5
 
 # Index kept in the destination folder: what was exported, and which version.
 INDEX_NAME = 'fusion-local-backup.json'
@@ -94,6 +97,9 @@ TEXTS = {
               'no uses Fusion mientras dura el proceso.'},
     'cancel': {'en': 'Cancel', 'es': 'Cancelar'},
     'preparing': {'en': 'Preparing...', 'es': 'Preparando...'},
+    'waiting_f3z': {
+        'en': 'Waiting for {} F3Z from Autodesk...',
+        'es': 'Esperando {} F3Z de Autodesk...'},
     'progress': {'en': '%v of %m\n{}', 'es': '%v de %m\n{}'},
     'not_3d': {
         'en': 'Not a 3D design (.{})',
@@ -245,56 +251,35 @@ def export_step(design, path):
         raise RuntimeError(t('step_failed'))
 
 
-def export_f3z(folder, base):
+def launch_f3z(job_dir):
     """
-    Exports the active document as F3Z.
+    Asks Fusion to export the active document as F3Z into job_dir.
 
     The public API has no F3Z export, so this uses the undocumented text
-    command 'data.fileExport'. Fusion picks the file name, so the new or
-    modified F3Z is detected and renamed.
+    command 'data.fileExport'. The command returns at once: Autodesk packs
+    the F3Z in the cloud and Fusion downloads it into job_dir some seconds
+    later, even if the document has been closed in the meantime. Each
+    request gets its own folder because Fusion picks the file name.
     """
-    def snapshot():
-        found = {}
-        for name in os.listdir(folder):
-            if name.lower().endswith('.f3z'):
-                full = os.path.join(folder, name)
-                try:
-                    found[name] = (os.path.getmtime(full), os.path.getsize(full))
-                except OSError:
-                    pass
-        return found
+    os.makedirs(job_dir, exist_ok=True)
+    app.executeTextCommand('data.fileExport f3z "{}"'.format(job_dir))
 
-    before = snapshot()
-    app.executeTextCommand('data.fileExport f3z "{}"'.format(folder))
 
-    deadline = time.time() + F3Z_TIMEOUT
-    produced = None
-    last_size = -1
-    while time.time() < deadline:
-        adsk.doEvents()
-        time.sleep(0.5)
-        now = snapshot()
-        changed = [n for n, info in now.items() if before.get(n) != info or n not in before]
-        if not changed and produced is None:
-            continue
-        if changed:
-            produced = changed[0]
-        size = now.get(produced, (0, 0))[1]
-        # Finished once the size stops growing.
-        if size > 0 and size == last_size:
-            break
-        last_size = size
-    else:
-        produced = None if last_size <= 0 else produced
-
-    if not produced:
-        raise RuntimeError(t('f3z_failed'))
-
-    target = os.path.join(folder, base + '.f3z')
-    source = os.path.join(folder, produced)
-    if os.path.normcase(source) != os.path.normcase(target):
-        os.replace(source, target)
-    return target
+def arrived_f3z(job_dir):
+    """Path of the finished F3Z in job_dir, or None while it is on its way."""
+    try:
+        names = [n for n in os.listdir(job_dir) if n.lower().endswith('.f3z')]
+        if not names:
+            return None
+        path = os.path.join(job_dir, names[0])
+        # A zip only opens once it has been written to the end.
+        if not zipfile.is_zipfile(path):
+            return None
+        with zipfile.ZipFile(path) as archive:
+            archive.namelist()
+        return path
+    except Exception:
+        return None
 
 
 # --------------------------------------------------------------------------
@@ -454,12 +439,30 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
         log.append((status, where, detail))
         counts[status] += 1
 
+    def report(where, version, done, errors, outdated, moved):
+        """Writes the log line of a design once all its exports are settled."""
+        if errors:
+            detail = '; '.join(errors)
+            if done:
+                detail += t('partial_ok').format(', '.join(done))
+            record('error', where, detail)
+            return
+        detail = '{} (v{})'.format(', '.join(done), version)
+        if outdated:
+            detail += t('outdated_refs').format(', '.join(outdated))
+        if moved:
+            detail += ' | ' + t('moved')
+        record('ok', where, detail)
+
     index = load_index(out_root)
     designs = index['designs']
     used = set(os.path.join(entry_folder(out_root, e), e['base']).lower()
                for e in designs.values())
     seen = set()
     tmp_dir = os.path.join(out_root, TMP_DIR)
+    shutil.rmtree(tmp_dir, ignore_errors=True)   # leftovers of an interrupted run
+    pending = []      # F3Z requested from Autodesk and not yet received
+    launched = [0]
 
     progress = ui.createProgressDialog()
     progress.cancelButtonText = t('cancel')
@@ -467,12 +470,65 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
     progress.isBackgroundTranslucent = False
     progress.show(CMD_NAME, t('preparing'), 0, max(len(targets), 1), 0)
 
+    def drop_previous(entry, folder, file_name):
+        # A design can switch between F3D and F3Z: drop the old one.
+        previous = (entry.get('archive') or {}).get('file')
+        if previous and previous != file_name:
+            try:
+                os.remove(os.path.join(folder, previous))
+            except OSError:
+                pass
+
+    def settle(job, f3z_path=None, error=None):
+        """Finishes a pending F3Z. False when the file is not movable yet."""
+        entry = job['entry']
+        if f3z_path:
+            file_name = job['base'] + '.f3z'
+            final_path = os.path.join(job['folder'], file_name)
+            try:
+                os.replace(f3z_path, final_path)
+            except OSError:
+                return False
+            drop_previous(entry, job['folder'], file_name)
+            entry['archive'] = {'version': job['version'], 'file': file_name,
+                                'contains': f3z_contents(final_path, job['id'])}
+            designs[job['id']] = entry
+            save_index(out_root, index)
+            job['done'].insert(0, 'F3Z')
+        else:
+            job['errors'].insert(0, t('err_archive').format(error))
+        shutil.rmtree(job['dir'], ignore_errors=True)
+        report(job['where'], job['version'], job['done'], job['errors'],
+               job['outdated'], job['moved'])
+        return True
+
+    def collect():
+        """Puts in place the F3Z files that have arrived."""
+        for job in list(pending):
+            path = arrived_f3z(job['dir'])
+            if path:
+                if settle(job, f3z_path=path):
+                    pending.remove(job)
+            elif time.time() - job['started'] > F3Z_TIMEOUT:
+                settle(job, error=t('f3z_failed'))
+                pending.remove(job)
+
+    def wait_until_pending(limit):
+        """Waits until at most `limit` F3Z requests are still on their way."""
+        collect()
+        while len(pending) > limit:
+            progress.message = t('waiting_f3z').format(len(pending))
+            adsk.doEvents()
+            time.sleep(0.5)
+            collect()
+
     cancelled = False
     for position, (data_file, parts) in enumerate(targets):
         adsk.doEvents()
         if progress.wasCancelled:
             cancelled = True
             break
+        collect()
 
         name = data_file.name
         where = '/'.join(parts + [name])
@@ -527,30 +583,29 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
 
             done = []
             errors = []
+            job = None
 
             if need_archive:
                 try:
                     if has_external_references(doc, data_file):
-                        tmp_path = export_f3z(tmp_dir, base)
-                        file_name = base + '.f3z'
+                        # Requested now and picked up later: Autodesk takes a
+                        # while to pack it and there is no need to wait idle.
+                        wait_until_pending(MAX_PENDING_F3Z - 1)
+                        progress.message = t('progress').format(where)
+                        launched[0] += 1
+                        job_dir = os.path.join(tmp_dir, 'f3z_{}'.format(launched[0]))
+                        launch_f3z(job_dir)
+                        job = {'id': design_id, 'entry': entry, 'folder': folder,
+                               'base': base, 'version': version, 'where': where,
+                               'dir': job_dir, 'started': time.time()}
                     else:
                         tmp_path = os.path.join(tmp_dir, base + '.f3d')
                         export_f3d(design, tmp_path)
                         file_name = base + '.f3d'
-                    final_path = os.path.join(folder, file_name)
-                    os.replace(tmp_path, final_path)
-                    # A design can switch between F3D and F3Z: drop the old one.
-                    previous = (entry.get('archive') or {}).get('file')
-                    if previous and previous != file_name:
-                        try:
-                            os.remove(os.path.join(folder, previous))
-                        except OSError:
-                            pass
-                    info = {'version': version, 'file': file_name}
-                    if file_name.endswith('.f3z'):
-                        info['contains'] = f3z_contents(final_path, design_id)
-                    entry['archive'] = info
-                    done.append(file_name[-3:].upper())
+                        os.replace(tmp_path, os.path.join(folder, file_name))
+                        drop_previous(entry, folder, file_name)
+                        entry['archive'] = {'version': version, 'file': file_name}
+                        done.append('F3D')
                 except Exception as exc:
                     errors.append(t('err_archive').format(exc))
 
@@ -568,19 +623,12 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
                 designs[design_id] = entry
                 save_index(out_root, index)
 
-            if errors:
-                detail = '; '.join(errors)
-                if done:
-                    detail += t('partial_ok').format(', '.join(done))
-                record('error', where, detail)
+            outdated = outdated_references(doc)
+            if job:
+                job.update(done=done, errors=errors, outdated=outdated, moved=moved)
+                pending.append(job)
             else:
-                detail = '{} (v{})'.format(', '.join(done), version)
-                outdated = outdated_references(doc)
-                if outdated:
-                    detail += t('outdated_refs').format(', '.join(outdated))
-                if moved:
-                    detail += ' | ' + t('moved')
-                record('ok', where, detail)
+                report(where, version, done, errors, outdated, moved)
         except Exception as exc:
             record('error', where, str(exc))
         finally:
@@ -590,6 +638,9 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
                 except Exception:
                     pass
 
+    # Also after a cancel: the F3Z already requested are on their way.
+    wait_until_pending(0)
+
     # Designs in the index that were not found in the projects just walked.
     if prefixes and not cancelled:
         for design_id, entry in designs.items():
@@ -598,11 +649,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
             if any(entry['path'] == p or entry['path'].startswith(p + '/') for p in prefixes):
                 record('gone', entry['path'] + '/' + entry['name'], t('gone_detail'))
 
-    try:
-        os.rmdir(tmp_dir)
-    except OSError:
-        pass
-
+    shutil.rmtree(tmp_dir, ignore_errors=True)
     progress.hide()
     return log, counts, cancelled
 
