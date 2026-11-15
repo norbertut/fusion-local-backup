@@ -9,6 +9,12 @@ Phase 1 / Fase 1:
   * Scope: a group of files, a whole project or every project in the
     active hub.
   * Mirrors the Hub / Project / Folders structure on disk.
+
+Phase 2 / Fase 2:
+  * Incremental: an index file in the destination folder records, per
+    design and per format, the version already exported. Only new or
+    changed designs are opened and exported again.
+  * Only the latest version is kept on disk.
   * Interface in English or Spanish, following Fusion's language.
 
 Run it from Fusion: UTILITIES > Add-Ins > Scripts.
@@ -16,10 +22,12 @@ Run it from Fusion: UTILITIES > Add-Ins > Scripts.
 
 import csv
 import datetime
+import json
 import os
 import re
 import time
 import traceback
+import zipfile
 
 import adsk.core
 import adsk.fusion
@@ -39,11 +47,18 @@ ID_F3D = 'fmtF3d'
 ID_STEP = 'fmtStep'
 ID_FOLDER = 'outFolder'
 ID_BROWSE = 'browse'
-ID_SKIP = 'skipExisting'
+ID_FORCE = 'forceExport'
 ID_INFO = 'info'
 
 # Maximum seconds to wait for Fusion to finish writing an F3Z.
 F3Z_TIMEOUT = 300
+
+# Index kept in the destination folder: what was exported, and which version.
+INDEX_NAME = 'fusion-local-backup.json'
+# Exports are written here first and moved once complete.
+TMP_DIR = '_tmp'
+# Remembers the last destination folder between runs.
+SETTINGS_PATH = os.path.join(os.path.expanduser('~'), '.fusion-local-backup-settings.json')
 
 app = None
 ui = None
@@ -79,9 +94,9 @@ TEXTS = {
         'es': 'Archivo Fusion (F3D / F3Z)'},
     'out_folder': {'en': 'Destination folder', 'es': 'Carpeta de destino'},
     'browse': {'en': 'Browse...', 'es': 'Examinar...'},
-    'skip_existing': {
-        'en': 'Skip files that already exist on disk',
-        'es': 'Omitir los que ya existen en disco'},
+    'force': {
+        'en': 'Export again even if up to date',
+        'es': 'Exportar de nuevo aunque esté al día'},
     'info': {
         'en': 'Hub: {}. Fusion will open each design to export it; '
               'do not use Fusion while the process is running.',
@@ -93,7 +108,16 @@ TEXTS = {
     'not_3d': {
         'en': 'Not a 3D design (.{})',
         'es': 'No es un diseño 3D (.{})'},
-    'already_exists': {'en': 'Already on disk', 'es': 'Ya existía en disco'},
+    'up_to_date': {'en': 'Up to date (v{})', 'es': 'Al día (v{})'},
+    'moved': {
+        'en': 'Renamed or moved in Fusion; local files moved',
+        'es': 'Renombrado o movido en Fusion; ficheros locales movidos'},
+    'outdated_refs': {
+        'en': ' | Uses outdated references: {}',
+        'es': ' | Usa referencias desactualizadas: {}'},
+    'gone_detail': {
+        'en': 'No longer in the cloud; the local copy is kept',
+        'es': 'Ya no existe en la nube; se conserva la copia local'},
     'no_design': {
         'en': 'The document does not contain a design',
         'es': 'El documento no contiene un diseño'},
@@ -112,6 +136,7 @@ TEXTS = {
     'status_ok': {'en': 'ok', 'es': 'ok'},
     'status_skipped': {'en': 'skipped', 'es': 'omitido'},
     'status_error': {'en': 'error', 'es': 'error'},
+    'status_gone': {'en': 'not in cloud', 'es': 'no está en la nube'},
     'log_header': {
         'en': ['status', 'file', 'detail'],
         'es': ['estado', 'fichero', 'detalle']},
@@ -121,10 +146,10 @@ TEXTS = {
     'done': {'en': 'Export finished.', 'es': 'Exportación terminada.'},
     'cancelled': {'en': 'Export cancelled.', 'es': 'Exportación cancelada.'},
     'summary': {
-        'en': '{}\n\nExported: {}\nSkipped: {}\nWith errors: {}\n\n'
-              'Folder: {}\nLog: {}',
-        'es': '{}\n\nExportados: {}\nOmitidos: {}\nCon errores: {}\n\n'
-              'Carpeta: {}\nRegistro: {}'},
+        'en': '{}\n\nExported: {}\nUp to date or skipped: {}\nWith errors: {}\n'
+              'No longer in the cloud: {}\n\nFolder: {}\nLog: {}',
+        'es': '{}\n\nExportados: {}\nAl día u omitidos: {}\nCon errores: {}\n'
+              'Ya no están en la nube: {}\n\nCarpeta: {}\nRegistro: {}'},
     'err_dialog': {
         'en': 'Error creating the dialog:\n{}',
         'es': 'Error al crear el diálogo:\n{}'},
@@ -310,14 +335,137 @@ def collect_targets(scope, project_index, selected_file_indexes):
     return targets
 
 
-def run_export(targets, out_root, want_archive, want_step, skip_existing):
+def scanned_prefixes(scope, project_index):
+    """'hub/project' prefixes fully walked in this run (None for loose files)."""
+    if scope == SCOPE_FILES:
+        return None
+    hub_name = sanitize(app.data.activeHub.name)
+    if scope == SCOPE_PROJECT:
+        projects = [state['projects'][project_index]]
+    else:
+        projects = state['projects']
+    return ['{}/{}'.format(hub_name, sanitize(p.name)) for p in projects]
+
+
+def load_settings():
+    try:
+        with open(SETTINGS_PATH, encoding='utf-8') as handle:
+            data = json.load(handle)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def save_settings(settings):
+    try:
+        with open(SETTINGS_PATH, 'w', encoding='utf-8') as handle:
+            json.dump(settings, handle, ensure_ascii=False, indent=1)
+    except Exception:
+        pass
+
+
+def load_index(out_root):
+    """
+    Reads the index of the destination folder.
+
+    Shape: {"format": 1, "designs": {<design id>: {
+        "name": Fusion name, "path": "hub/project/folders", "base": file name
+        without extension, "archive": {"version", "file", "contains"},
+        "step": {"version", "file"}}}}
+    """
+    path = os.path.join(out_root, INDEX_NAME)
+    if os.path.exists(path):
+        try:
+            with open(path, encoding='utf-8') as handle:
+                data = json.load(handle)
+            if isinstance(data.get('designs'), dict):
+                return data
+        except Exception:
+            pass
+        # Unreadable index: keep it aside and start a new one.
+        os.replace(path, path + '.bad')
+    return {'format': 1, 'designs': {}}
+
+
+def save_index(out_root, index):
+    path = os.path.join(out_root, INDEX_NAME)
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as handle:
+        json.dump(index, handle, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def f3z_contents(path, design_id):
+    """Referenced designs packed inside an F3Z, as {name: version}."""
+    contents = {}
+    try:
+        with zipfile.ZipFile(path) as archive:
+            data = json.loads(archive.read('DesignDescription.json').decode('utf-8'))
+        for graph in data['designDescription']['designGraphs']:
+            for obj in graph['designObjects']:
+                if obj.get('lineage') != design_id:
+                    contents[obj.get('displayName', '?')] = obj.get('version')
+    except Exception:
+        pass
+    return contents
+
+
+def outdated_references(doc):
+    """References of the open document that are not at their latest version."""
+    notes = []
+    try:
+        refs = doc.documentReferences
+        for i in range(refs.count):
+            ref = refs.item(i)
+            if ref.isOutOfDate:
+                notes.append('{} v{} -> v{}'.format(
+                    ref.dataFile.name, ref.version, ref.dataFile.latestVersionNumber))
+    except Exception:
+        pass
+    return notes
+
+
+def entry_folder(out_root, entry):
+    return os.path.join(out_root, *entry['path'].split('/'))
+
+
+def relocate(out_root, entry, parts, name, used):
+    """Moves the local files of a design renamed or moved in Fusion."""
+    old_folder = entry_folder(out_root, entry)
+    used.discard(os.path.join(old_folder, entry['base']).lower())
+    new_folder = os.path.join(out_root, *parts)
+    new_base = unique_base(new_folder, sanitize(name), used)
+    os.makedirs(new_folder, exist_ok=True)
+    for fmt in ('archive', 'step'):
+        info = entry.get(fmt)
+        if not info:
+            continue
+        old_file = os.path.join(old_folder, info['file'])
+        new_name = new_base + os.path.splitext(info['file'])[1]
+        if os.path.exists(old_file):
+            os.replace(old_file, os.path.join(new_folder, new_name))
+            info['file'] = new_name
+        else:
+            del entry[fmt]
+    entry['name'] = name
+    entry['path'] = '/'.join(parts)
+    entry['base'] = new_base
+
+
+def run_export(targets, out_root, want_archive, want_step, force, prefixes=None):
     log = []          # (status key, path, detail)
-    used = set()
-    counts = {'ok': 0, 'skipped': 0, 'error': 0}
+    counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0}
 
     def record(status, where, detail=''):
         log.append((status, where, detail))
         counts[status] += 1
+
+    index = load_index(out_root)
+    designs = index['designs']
+    used = set(os.path.join(entry_folder(out_root, e), e['base']).lower()
+               for e in designs.values())
+    seen = set()
+    tmp_dir = os.path.join(out_root, TMP_DIR)
 
     progress = ui.createProgressDialog()
     progress.cancelButtonText = t('cancel')
@@ -326,7 +474,7 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
     progress.show(CMD_NAME, t('preparing'), 0, max(len(targets), 1), 0)
 
     cancelled = False
-    for index, (data_file, parts) in enumerate(targets):
+    for position, (data_file, parts) in enumerate(targets):
         adsk.doEvents()
         if progress.wasCancelled:
             cancelled = True
@@ -334,33 +482,48 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
 
         name = data_file.name
         where = '/'.join(parts + [name])
-        progress.progressValue = index
+        progress.progressValue = position
         progress.message = t('progress').format(where)
 
         if extension_of(data_file) != 'f3d':
             record('skipped', where, t('not_3d').format(extension_of(data_file)))
             continue
 
+        design_id = data_file.id
+        version = data_file.versionNumber
+        seen.add(design_id)
         folder = os.path.join(out_root, *parts)
-        base = unique_base(folder, sanitize(name), used)
-        f3d_path = os.path.join(folder, base + '.f3d')
-        f3z_path = os.path.join(folder, base + '.f3z')
-        step_path = os.path.join(folder, base + '.step')
-
-        need_archive = want_archive
-        need_step = want_step
-        if skip_existing:
-            if os.path.exists(f3d_path) or os.path.exists(f3z_path):
-                need_archive = False
-            if os.path.exists(step_path):
-                need_step = False
-        if not need_archive and not need_step:
-            record('skipped', where, t('already_exists'))
-            continue
+        entry = designs.get(design_id)
+        moved = False
 
         doc = None
         try:
+            if entry and (entry['path'] != '/'.join(parts) or entry['name'] != name):
+                relocate(out_root, entry, parts, name, used)
+                save_index(out_root, index)
+                moved = True
+            if not entry:
+                entry = {'name': name, 'path': '/'.join(parts),
+                         'base': unique_base(folder, sanitize(name), used)}
+            base = entry['base']
+
+            def needs(fmt):
+                info = entry.get(fmt)
+                if force or not info or info.get('version') != version:
+                    return True
+                return not os.path.exists(os.path.join(folder, info['file']))
+
+            need_archive = want_archive and needs('archive')
+            need_step = want_step and needs('step')
+            if not need_archive and not need_step:
+                detail = t('up_to_date').format(version)
+                if moved:
+                    detail += ' | ' + t('moved')
+                record('skipped', where, detail)
+                continue
+
             os.makedirs(folder, exist_ok=True)
+            os.makedirs(tmp_dir, exist_ok=True)
             doc = app.documents.open(data_file, True)
             design = adsk.fusion.Design.cast(
                 doc.products.itemByProductType('DesignProductType'))
@@ -374,20 +537,42 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
             if need_archive:
                 try:
                     if has_external_references(doc, data_file):
-                        export_f3z(folder, base)
-                        done.append('F3Z')
+                        tmp_path = export_f3z(tmp_dir, base)
+                        file_name = base + '.f3z'
                     else:
-                        export_f3d(design, f3d_path)
-                        done.append('F3D')
+                        tmp_path = os.path.join(tmp_dir, base + '.f3d')
+                        export_f3d(design, tmp_path)
+                        file_name = base + '.f3d'
+                    final_path = os.path.join(folder, file_name)
+                    os.replace(tmp_path, final_path)
+                    # A design can switch between F3D and F3Z: drop the old one.
+                    previous = (entry.get('archive') or {}).get('file')
+                    if previous and previous != file_name:
+                        try:
+                            os.remove(os.path.join(folder, previous))
+                        except OSError:
+                            pass
+                    info = {'version': version, 'file': file_name}
+                    if file_name.endswith('.f3z'):
+                        info['contains'] = f3z_contents(final_path, design_id)
+                    entry['archive'] = info
+                    done.append(file_name[-3:].upper())
                 except Exception as exc:
                     errors.append(t('err_archive').format(exc))
 
             if need_step:
                 try:
-                    export_step(design, step_path)
+                    tmp_path = os.path.join(tmp_dir, base + '.step')
+                    export_step(design, tmp_path)
+                    os.replace(tmp_path, os.path.join(folder, base + '.step'))
+                    entry['step'] = {'version': version, 'file': base + '.step'}
                     done.append('STEP')
                 except Exception as exc:
                     errors.append(t('err_step').format(exc))
+
+            if done:
+                designs[design_id] = entry
+                save_index(out_root, index)
 
             if errors:
                 detail = '; '.join(errors)
@@ -395,7 +580,13 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
                     detail += t('partial_ok').format(', '.join(done))
                 record('error', where, detail)
             else:
-                record('ok', where, ', '.join(done))
+                detail = '{} (v{})'.format(', '.join(done), version)
+                outdated = outdated_references(doc)
+                if outdated:
+                    detail += t('outdated_refs').format(', '.join(outdated))
+                if moved:
+                    detail += ' | ' + t('moved')
+                record('ok', where, detail)
         except Exception as exc:
             record('error', where, str(exc))
         finally:
@@ -404,6 +595,19 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
                     doc.close(False)
                 except Exception:
                     pass
+
+    # Designs in the index that were not found in the projects just walked.
+    if prefixes and not cancelled:
+        for design_id, entry in designs.items():
+            if design_id in seen:
+                continue
+            if any(entry['path'] == p or entry['path'].startswith(p + '/') for p in prefixes):
+                record('gone', entry['path'] + '/' + entry['name'], t('gone_detail'))
+
+    try:
+        os.rmdir(tmp_dir)
+    except OSError:
+        pass
 
     progress.hide()
     return log, counts, cancelled
@@ -493,10 +697,11 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs.addBoolValueInput(ID_F3D, t('fmt_archive'), True, '', True)
             inputs.addBoolValueInput(ID_STEP, 'STEP', True, '', True)
 
-            default_folder = os.path.join(os.path.expanduser('~'), 'FusionLocalBackup')
+            default_folder = load_settings().get('folder') or os.path.join(
+                os.path.expanduser('~'), 'FusionLocalBackup')
             inputs.addStringValueInput(ID_FOLDER, t('out_folder'), default_folder)
             inputs.addBoolValueInput(ID_BROWSE, t('browse'), False, '', False)
-            inputs.addBoolValueInput(ID_SKIP, t('skip_existing'), True, '', False)
+            inputs.addBoolValueInput(ID_FORCE, t('force'), True, '', False)
             inputs.addTextBoxCommandInput(
                 ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
 
@@ -556,26 +761,28 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 os.path.expanduser(inputs.itemById(ID_FOLDER).value.strip()))
             want_archive = inputs.itemById(ID_F3D).value
             want_step = inputs.itemById(ID_STEP).value
-            skip_existing = inputs.itemById(ID_SKIP).value
+            force = inputs.itemById(ID_FORCE).value
             project_index = selected_index(inputs, ID_PROJECT)
             files = inputs.itemById(ID_FILES).listItems
             selected = [i for i in range(files.count) if files.item(i).isSelected]
 
             os.makedirs(out_root, exist_ok=True)
+            save_settings({'folder': out_root})
             targets = collect_targets(scope, project_index, selected)
             if not targets:
                 ui.messageBox(t('nothing_found'))
                 return
 
             log, counts, cancelled = run_export(
-                targets, out_root, want_archive, want_step, skip_existing)
+                targets, out_root, want_archive, want_step, force,
+                scanned_prefixes(scope, project_index))
             log_path = write_log(out_root, log)
 
             ui.messageBox(
                 t('summary').format(
                     t('cancelled') if cancelled else t('done'),
                     counts['ok'], counts['skipped'], counts['error'],
-                    out_root, os.path.basename(log_path)),
+                    counts['gone'], out_root, os.path.basename(log_path)),
                 CMD_NAME)
         except Exception:
             ui.messageBox(t('err_export').format(traceback.format_exc()))
