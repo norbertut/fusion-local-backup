@@ -715,7 +715,8 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             default_folder = settings.get('folder') or os.path.join(
                 os.path.expanduser('~'), 'FusionLocalBackup')
             inputs.addStringValueInput(ID_FOLDER, t('out_folder'), default_folder)
-            inputs.addBoolValueInput(ID_BROWSE, t('browse'), False, '', False)
+            browse = inputs.addBoolValueInput(ID_BROWSE, t('browse'), False, '', False)
+            browse.isFullWidth = True
             inputs.addBoolValueInput(ID_FORCE, t('force'), True, '', False)
             inputs.addTextBoxCommandInput(
                 ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
