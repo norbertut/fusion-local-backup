@@ -1,0 +1,10 @@
+{
+	"autodeskProduct": "Fusion",
+	"type": "script",
+	"author": "",
+	"description": {
+		"": "Copia local de disenos a F3D/F3Z y STEP por ficheros, proyecto o hub."
+	},
+	"supportedOS": "windows|mac",
+	"editEnabled": true
+}
