@@ -3,7 +3,7 @@
 	"type": "script",
 	"author": "",
 	"description": {
-		"": "Copia local de disenos a F3D/F3Z y STEP por ficheros, proyecto o hub."
+		"": "Local backup of your designs as F3D/F3Z and STEP: by files, project or hub."
 	},
 	"supportedOS": "windows|mac",
 	"editEnabled": true

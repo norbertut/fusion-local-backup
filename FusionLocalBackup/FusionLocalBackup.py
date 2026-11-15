@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
 """
-Fusion Local Backup - Copia local de disenos de Autodesk Fusion.
+Fusion Local Backup - Local copy of your Autodesk Fusion designs.
+Fusion Local Backup - Copia local de tus diseños de Autodesk Fusion.
 
-Fase 1:
-  * Formatos: archivo de Fusion (F3D, o F3Z si el diseno tiene referencias
-    externas) y STEP.
-  * Alcance: un grupo de ficheros, un proyecto entero o todos los proyectos
-    del hub activo.
-  * Reproduce en disco la estructura Hub / Proyecto / Carpetas.
+Phase 1 / Fase 1:
+  * Formats: Fusion archive (F3D, or F3Z when the design has external
+    references) and STEP.
+  * Scope: a group of files, a whole project or every project in the
+    active hub.
+  * Mirrors the Hub / Project / Folders structure on disk.
+  * Interface in English or Spanish, following Fusion's language.
 
-Se ejecuta desde Fusion: UTILIDADES > Complementos > Scripts.
+Run it from Fusion: UTILITIES > Add-Ins > Scripts.
 """
 
 import csv
@@ -24,11 +26,11 @@ import adsk.fusion
 
 CMD_ID = 'fusionLocalBackupCmd'
 CMD_NAME = 'Fusion Local Backup'
-CMD_TOOLTIP = 'Exporta disenos a F3D/F3Z y STEP por ficheros, proyecto o hub.'
 
-SCOPE_FILES = 'Ficheros seleccionados'
-SCOPE_PROJECT = 'Un proyecto'
-SCOPE_ALL = 'Todo (todos los proyectos del hub)'
+# Scope options, in the same order as the drop-down list.
+SCOPE_FILES = 0
+SCOPE_PROJECT = 1
+SCOPE_ALL = 2
 
 ID_SCOPE = 'scope'
 ID_PROJECT = 'project'
@@ -40,34 +42,129 @@ ID_BROWSE = 'browse'
 ID_SKIP = 'skipExisting'
 ID_INFO = 'info'
 
-# Segundos maximos de espera a que Fusion termine de escribir un F3Z.
+# Maximum seconds to wait for Fusion to finish writing an F3Z.
 F3Z_TIMEOUT = 300
 
 app = None
 ui = None
 handlers = []
+lang = 'en'
 
-# Estado compartido entre los manejadores del dialogo.
+# State shared between the dialog handlers.
 state = {
-    'projects': [],      # DataProject, en el mismo orden que el desplegable
-    'files': [],         # (DataFile, [carpetas]) en el orden de la lista
-    'files_project': -1  # indice del proyecto cuyos ficheros estan cargados
+    'projects': [],      # DataProject, same order as the drop-down
+    'files': [],         # (DataFile, [folders]) in list order
+    'files_project': -1  # index of the project whose files are loaded
 }
 
 
 # --------------------------------------------------------------------------
-# Utilidades
+# Texts / Textos
+# --------------------------------------------------------------------------
+
+TEXTS = {
+    'tooltip': {
+        'en': 'Exports designs to F3D/F3Z and STEP by files, project or hub.',
+        'es': 'Exporta diseños a F3D/F3Z y STEP por ficheros, proyecto o hub.'},
+    'scope': {'en': 'What to export', 'es': 'Qué exportar'},
+    'scope_files': {'en': 'Selected files', 'es': 'Ficheros seleccionados'},
+    'scope_project': {'en': 'One project', 'es': 'Un proyecto'},
+    'scope_all': {
+        'en': 'Everything (all projects in the hub)',
+        'es': 'Todo (todos los proyectos del hub)'},
+    'project': {'en': 'Project', 'es': 'Proyecto'},
+    'files': {'en': 'Files', 'es': 'Ficheros'},
+    'fmt_archive': {
+        'en': 'Fusion archive (F3D / F3Z)',
+        'es': 'Archivo Fusion (F3D / F3Z)'},
+    'out_folder': {'en': 'Destination folder', 'es': 'Carpeta de destino'},
+    'browse': {'en': 'Browse...', 'es': 'Examinar...'},
+    'skip_existing': {
+        'en': 'Skip files that already exist on disk',
+        'es': 'Omitir los que ya existen en disco'},
+    'info': {
+        'en': 'Hub: {}. Fusion will open each design to export it; '
+              'do not use Fusion while the process is running.',
+        'es': 'Hub: {}. Fusion abrirá cada diseño para exportarlo; '
+              'no uses Fusion mientras dura el proceso.'},
+    'cancel': {'en': 'Cancel', 'es': 'Cancelar'},
+    'preparing': {'en': 'Preparing...', 'es': 'Preparando...'},
+    'progress': {'en': '%v of %m\n{}', 'es': '%v de %m\n{}'},
+    'not_3d': {
+        'en': 'Not a 3D design (.{})',
+        'es': 'No es un diseño 3D (.{})'},
+    'already_exists': {'en': 'Already on disk', 'es': 'Ya existía en disco'},
+    'no_design': {
+        'en': 'The document does not contain a design',
+        'es': 'El documento no contiene un diseño'},
+    'err_archive': {'en': 'Archive: {}', 'es': 'Archivo: {}'},
+    'err_step': {'en': 'STEP: {}', 'es': 'STEP: {}'},
+    'partial_ok': {'en': ' (succeeded: {})', 'es': ' (correcto: {})'},
+    'f3d_failed': {
+        'en': 'Fusion could not create the F3D',
+        'es': 'Fusion no pudo crear el F3D'},
+    'step_failed': {
+        'en': 'Fusion could not create the STEP',
+        'es': 'Fusion no pudo crear el STEP'},
+    'f3z_failed': {
+        'en': 'The F3Z was not generated (data.fileExport returned nothing)',
+        'es': 'No se generó el F3Z (comando data.fileExport sin resultado)'},
+    'status_ok': {'en': 'ok', 'es': 'ok'},
+    'status_skipped': {'en': 'skipped', 'es': 'omitido'},
+    'status_error': {'en': 'error', 'es': 'error'},
+    'log_header': {
+        'en': ['status', 'file', 'detail'],
+        'es': ['estado', 'fichero', 'detalle']},
+    'nothing_found': {
+        'en': 'No files to export were found.',
+        'es': 'No se ha encontrado ningún fichero que exportar.'},
+    'done': {'en': 'Export finished.', 'es': 'Exportación terminada.'},
+    'cancelled': {'en': 'Export cancelled.', 'es': 'Exportación cancelada.'},
+    'summary': {
+        'en': '{}\n\nExported: {}\nSkipped: {}\nWith errors: {}\n\n'
+              'Folder: {}\nLog: {}',
+        'es': '{}\n\nExportados: {}\nOmitidos: {}\nCon errores: {}\n\n'
+              'Carpeta: {}\nRegistro: {}'},
+    'err_dialog': {
+        'en': 'Error creating the dialog:\n{}',
+        'es': 'Error al crear el diálogo:\n{}'},
+    'err_export': {
+        'en': 'Error during the export:\n{}',
+        'es': 'Error durante la exportación:\n{}'},
+    'err_generic': {'en': 'Error:\n{}', 'es': 'Error:\n{}'},
+}
+
+
+def t(key):
+    """Returns a text in the active language (English as fallback)."""
+    entry = TEXTS[key]
+    return entry.get(lang, entry['en'])
+
+
+def detect_language():
+    """Spanish when Fusion runs in Spanish, English otherwise."""
+    try:
+        user_language = app.preferences.generalPreferences.userLanguage
+        if user_language == adsk.core.UserLanguages.SpanishLanguage:
+            return 'es'
+    except Exception:
+        pass
+    return 'en'
+
+
+# --------------------------------------------------------------------------
+# Helpers
 # --------------------------------------------------------------------------
 
 def sanitize(name):
-    """Convierte un nombre de Fusion en un nombre valido de fichero/carpeta."""
+    """Turns a Fusion name into a valid file/folder name."""
     name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', '_', name or '')
     name = name.strip().rstrip('.')
     return name or '_'
 
 
 def items(collection):
-    """Itera una coleccion de la API de Fusion de forma segura."""
+    """Iterates a Fusion API collection safely."""
     for i in range(collection.count):
         item = collection.item(i)
         if item:
@@ -75,7 +172,7 @@ def items(collection):
 
 
 def walk_folder(folder, parts):
-    """Recorre una carpeta de datos y devuelve (DataFile, [carpetas])."""
+    """Walks a data folder and yields (DataFile, [folders])."""
     for data_file in items(folder.dataFiles):
         yield data_file, parts
     for sub in items(folder.dataFolders):
@@ -91,7 +188,7 @@ def extension_of(data_file):
 
 
 def has_external_references(doc, data_file):
-    """True si el diseno enlaza otros disenos (necesita F3Z en vez de F3D)."""
+    """True when the design links other designs (needs F3Z, not F3D)."""
     try:
         if doc.documentReferences.count > 0:
             return True
@@ -104,7 +201,7 @@ def has_external_references(doc, data_file):
 
 
 def unique_base(folder, base, used):
-    """Evita que dos disenos con el mismo nombre se pisen en la misma carpeta."""
+    """Keeps two designs with the same name from overwriting each other."""
     candidate = base
     n = 2
     while os.path.join(folder, candidate).lower() in used:
@@ -115,30 +212,30 @@ def unique_base(folder, base, used):
 
 
 # --------------------------------------------------------------------------
-# Exportadores
+# Exporters
 # --------------------------------------------------------------------------
 
 def export_f3d(design, path):
     mgr = design.exportManager
     options = mgr.createFusionArchiveExportOptions(path)
     if not mgr.execute(options):
-        raise RuntimeError('Fusion no pudo crear el F3D')
+        raise RuntimeError(t('f3d_failed'))
 
 
 def export_step(design, path):
     mgr = design.exportManager
     options = mgr.createSTEPExportOptions(path)
     if not mgr.execute(options):
-        raise RuntimeError('Fusion no pudo crear el STEP')
+        raise RuntimeError(t('step_failed'))
 
 
 def export_f3z(folder, base):
     """
-    Exporta el documento activo como F3Z.
+    Exports the active document as F3Z.
 
-    La API publica no ofrece F3Z, asi que se usa el comando de texto
-    'data.fileExport' (no documentado). Fusion elige el nombre del fichero,
-    por lo que se detecta el F3Z nuevo o modificado y se renombra.
+    The public API has no F3Z export, so this uses the undocumented text
+    command 'data.fileExport'. Fusion picks the file name, so the new or
+    modified F3Z is detected and renamed.
     """
     def snapshot():
         found = {}
@@ -167,7 +264,7 @@ def export_f3z(folder, base):
         if changed:
             produced = changed[0]
         size = now.get(produced, (0, 0))[1]
-        # Se da por terminado cuando el tamano deja de crecer.
+        # Finished once the size stops growing.
         if size > 0 and size == last_size:
             break
         last_size = size
@@ -175,7 +272,7 @@ def export_f3z(folder, base):
         produced = None if last_size <= 0 else produced
 
     if not produced:
-        raise RuntimeError('No se genero el F3Z (comando data.fileExport sin resultado)')
+        raise RuntimeError(t('f3z_failed'))
 
     target = os.path.join(folder, base + '.f3z')
     source = os.path.join(folder, produced)
@@ -185,11 +282,11 @@ def export_f3z(folder, base):
 
 
 # --------------------------------------------------------------------------
-# Proceso principal
+# Main process
 # --------------------------------------------------------------------------
 
 def collect_targets(scope, project_index, selected_file_indexes):
-    """Devuelve una lista de (DataFile, [hub, proyecto, carpetas...])."""
+    """Returns a list of (DataFile, [hub, project, folders...])."""
     hub_name = sanitize(app.data.activeHub.name)
     targets = []
 
@@ -214,19 +311,19 @@ def collect_targets(scope, project_index, selected_file_indexes):
 
 
 def run_export(targets, out_root, want_archive, want_step, skip_existing):
-    log = []          # (estado, ruta, detalle)
+    log = []          # (status key, path, detail)
     used = set()
-    counts = {'ok': 0, 'omitido': 0, 'error': 0}
+    counts = {'ok': 0, 'skipped': 0, 'error': 0}
 
     def record(status, where, detail=''):
         log.append((status, where, detail))
         counts[status] += 1
 
     progress = ui.createProgressDialog()
-    progress.cancelButtonText = 'Cancelar'
+    progress.cancelButtonText = t('cancel')
     progress.isCancelButtonShown = True
     progress.isBackgroundTranslucent = False
-    progress.show(CMD_NAME, 'Preparando...', 0, max(len(targets), 1), 0)
+    progress.show(CMD_NAME, t('preparing'), 0, max(len(targets), 1), 0)
 
     cancelled = False
     for index, (data_file, parts) in enumerate(targets):
@@ -238,10 +335,10 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
         name = data_file.name
         where = '/'.join(parts + [name])
         progress.progressValue = index
-        progress.message = '%v de %m\n{}'.format(where)
+        progress.message = t('progress').format(where)
 
         if extension_of(data_file) != 'f3d':
-            record('omitido', where, 'No es un diseno 3D (.{})'.format(extension_of(data_file)))
+            record('skipped', where, t('not_3d').format(extension_of(data_file)))
             continue
 
         folder = os.path.join(out_root, *parts)
@@ -258,7 +355,7 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
             if os.path.exists(step_path):
                 need_step = False
         if not need_archive and not need_step:
-            record('omitido', where, 'Ya existia en disco')
+            record('skipped', where, t('already_exists'))
             continue
 
         doc = None
@@ -268,7 +365,7 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
             design = adsk.fusion.Design.cast(
                 doc.products.itemByProductType('DesignProductType'))
             if not design:
-                record('omitido', where, 'El documento no contiene un diseno')
+                record('skipped', where, t('no_design'))
                 continue
 
             done = []
@@ -283,19 +380,19 @@ def run_export(targets, out_root, want_archive, want_step, skip_existing):
                         export_f3d(design, f3d_path)
                         done.append('F3D')
                 except Exception as exc:
-                    errors.append('Archivo: {}'.format(exc))
+                    errors.append(t('err_archive').format(exc))
 
             if need_step:
                 try:
                     export_step(design, step_path)
                     done.append('STEP')
                 except Exception as exc:
-                    errors.append('STEP: {}'.format(exc))
+                    errors.append(t('err_step').format(exc))
 
             if errors:
                 detail = '; '.join(errors)
                 if done:
-                    detail += ' (correcto: {})'.format(', '.join(done))
+                    detail += t('partial_ok').format(', '.join(done))
                 record('error', where, detail)
             else:
                 record('ok', where, ', '.join(done))
@@ -317,23 +414,24 @@ def write_log(out_root, log):
     path = os.path.join(out_root, 'export_log_{}.csv'.format(stamp))
     with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
         writer = csv.writer(handle, delimiter=';')
-        writer.writerow(['estado', 'fichero', 'detalle'])
-        writer.writerows(log)
+        writer.writerow(t('log_header'))
+        for status, where, detail in log:
+            writer.writerow([t('status_' + status), where, detail])
     return path
 
 
 # --------------------------------------------------------------------------
-# Dialogo
+# Dialog
 # --------------------------------------------------------------------------
 
-def selected_project_index(inputs):
-    item = inputs.itemById(ID_PROJECT).selectedItem
+def selected_index(inputs, input_id):
+    item = inputs.itemById(input_id).selectedItem
     return item.index if item else -1
 
 
 def load_files(inputs):
-    """Carga en la lista los disenos del proyecto elegido."""
-    index = selected_project_index(inputs)
+    """Loads the designs of the chosen project into the list."""
+    index = selected_index(inputs, ID_PROJECT)
     files_input = inputs.itemById(ID_FILES)
     if index < 0 or index == state['files_project']:
         return
@@ -350,7 +448,7 @@ def load_files(inputs):
 
 
 def refresh_visibility(inputs):
-    scope = inputs.itemById(ID_SCOPE).selectedItem.name
+    scope = selected_index(inputs, ID_SCOPE)
     inputs.itemById(ID_PROJECT).isVisible = scope != SCOPE_ALL
     inputs.itemById(ID_FILES).isVisible = scope == SCOPE_FILES
     if scope == SCOPE_FILES:
@@ -364,14 +462,15 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             inputs = command.commandInputs
             styles = adsk.core.DropDownStyles
 
+            # Added in the same order as SCOPE_FILES, SCOPE_PROJECT, SCOPE_ALL.
             scope = inputs.addDropDownCommandInput(
-                ID_SCOPE, 'Que exportar', styles.TextListDropDownStyle)
-            scope.listItems.add(SCOPE_FILES, False, '')
-            scope.listItems.add(SCOPE_PROJECT, True, '')
-            scope.listItems.add(SCOPE_ALL, False, '')
+                ID_SCOPE, t('scope'), styles.TextListDropDownStyle)
+            scope.listItems.add(t('scope_files'), False, '')
+            scope.listItems.add(t('scope_project'), True, '')
+            scope.listItems.add(t('scope_all'), False, '')
 
             project = inputs.addDropDownCommandInput(
-                ID_PROJECT, 'Proyecto', styles.TextListDropDownStyle)
+                ID_PROJECT, t('project'), styles.TextListDropDownStyle)
             state['projects'] = list(items(app.data.activeHub.dataProjects))
             state['files'] = []
             state['files_project'] = -1
@@ -381,7 +480,7 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             except Exception:
                 pass
             any_selected = False
-            for i, data_project in enumerate(state['projects']):
+            for data_project in state['projects']:
                 is_active = data_project.id == active_id
                 any_selected = any_selected or is_active
                 project.listItems.add(data_project.name, is_active, '')
@@ -389,21 +488,17 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
                 project.listItems.item(0).isSelected = True
 
             inputs.addDropDownCommandInput(
-                ID_FILES, 'Ficheros', styles.CheckBoxDropDownStyle)
+                ID_FILES, t('files'), styles.CheckBoxDropDownStyle)
 
-            inputs.addBoolValueInput(ID_F3D, 'Archivo Fusion (F3D / F3Z)', True, '', True)
+            inputs.addBoolValueInput(ID_F3D, t('fmt_archive'), True, '', True)
             inputs.addBoolValueInput(ID_STEP, 'STEP', True, '', True)
 
             default_folder = os.path.join(os.path.expanduser('~'), 'FusionLocalBackup')
-            inputs.addStringValueInput(ID_FOLDER, 'Carpeta de destino', default_folder)
-            inputs.addBoolValueInput(ID_BROWSE, 'Examinar...', False, '', False)
-            inputs.addBoolValueInput(
-                ID_SKIP, 'Omitir los que ya existen en disco', True, '', False)
+            inputs.addStringValueInput(ID_FOLDER, t('out_folder'), default_folder)
+            inputs.addBoolValueInput(ID_BROWSE, t('browse'), False, '', False)
+            inputs.addBoolValueInput(ID_SKIP, t('skip_existing'), True, '', False)
             inputs.addTextBoxCommandInput(
-                ID_INFO, '',
-                'Hub: {}. Fusion abrira cada diseno para exportarlo; '
-                'no uses Fusion mientras dura el proceso.'.format(app.data.activeHub.name),
-                3, True)
+                ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
 
             refresh_visibility(inputs)
 
@@ -416,7 +511,7 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
                 event.add(handler)
                 handlers.append(handler)
         except Exception:
-            ui.messageBox('Error al crear el dialogo:\n{}'.format(traceback.format_exc()))
+            ui.messageBox(t('err_dialog').format(traceback.format_exc()))
 
 
 class InputChangedHandler(adsk.core.InputChangedEventHandler):
@@ -428,11 +523,11 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
                 refresh_visibility(inputs)
             elif changed == ID_BROWSE:
                 dialog = ui.createFolderDialog()
-                dialog.title = 'Carpeta de destino'
+                dialog.title = t('out_folder')
                 if dialog.showDialog() == adsk.core.DialogResults.DialogOK:
                     inputs.itemById(ID_FOLDER).value = dialog.folder
         except Exception:
-            ui.messageBox('Error:\n{}'.format(traceback.format_exc()))
+            ui.messageBox(t('err_generic').format(traceback.format_exc()))
 
 
 class ValidateHandler(adsk.core.ValidateInputsEventHandler):
@@ -441,9 +536,9 @@ class ValidateHandler(adsk.core.ValidateInputsEventHandler):
             inputs = args.firingEvent.sender.commandInputs
             valid = bool(inputs.itemById(ID_FOLDER).value.strip())
             valid = valid and (inputs.itemById(ID_F3D).value or inputs.itemById(ID_STEP).value)
-            scope = inputs.itemById(ID_SCOPE).selectedItem.name
+            scope = selected_index(inputs, ID_SCOPE)
             if scope != SCOPE_ALL:
-                valid = valid and selected_project_index(inputs) >= 0
+                valid = valid and selected_index(inputs, ID_PROJECT) >= 0
             if scope == SCOPE_FILES:
                 files = inputs.itemById(ID_FILES).listItems
                 valid = valid and any(files.item(i).isSelected for i in range(files.count))
@@ -456,20 +551,20 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
     def notify(self, args):
         try:
             inputs = args.command.commandInputs
-            scope = inputs.itemById(ID_SCOPE).selectedItem.name
+            scope = selected_index(inputs, ID_SCOPE)
             out_root = os.path.abspath(
                 os.path.expanduser(inputs.itemById(ID_FOLDER).value.strip()))
             want_archive = inputs.itemById(ID_F3D).value
             want_step = inputs.itemById(ID_STEP).value
             skip_existing = inputs.itemById(ID_SKIP).value
-            project_index = selected_project_index(inputs)
+            project_index = selected_index(inputs, ID_PROJECT)
             files = inputs.itemById(ID_FILES).listItems
             selected = [i for i in range(files.count) if files.item(i).isSelected]
 
             os.makedirs(out_root, exist_ok=True)
             targets = collect_targets(scope, project_index, selected)
             if not targets:
-                ui.messageBox('No se ha encontrado ningun fichero que exportar.')
+                ui.messageBox(t('nothing_found'))
                 return
 
             log, counts, cancelled = run_export(
@@ -477,14 +572,13 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             log_path = write_log(out_root, log)
 
             ui.messageBox(
-                '{}\n\nExportados: {}\nOmitidos: {}\nCon errores: {}\n\n'
-                'Carpeta: {}\nRegistro: {}'.format(
-                    'Exportacion cancelada.' if cancelled else 'Exportacion terminada.',
-                    counts['ok'], counts['omitido'], counts['error'],
+                t('summary').format(
+                    t('cancelled') if cancelled else t('done'),
+                    counts['ok'], counts['skipped'], counts['error'],
                     out_root, os.path.basename(log_path)),
                 CMD_NAME)
         except Exception:
-            ui.messageBox('Error durante la exportacion:\n{}'.format(traceback.format_exc()))
+            ui.messageBox(t('err_export').format(traceback.format_exc()))
 
 
 class DestroyHandler(adsk.core.CommandEventHandler):
@@ -493,15 +587,18 @@ class DestroyHandler(adsk.core.CommandEventHandler):
 
 
 def run(context):
-    global app, ui
+    global app, ui, lang
     try:
         app = adsk.core.Application.get()
         ui = app.userInterface
+        lang = detect_language()
 
+        # Recreated on every run so the texts follow the current language.
         definition = ui.commandDefinitions.itemById(CMD_ID)
-        if not definition:
-            definition = ui.commandDefinitions.addButtonDefinition(
-                CMD_ID, CMD_NAME, CMD_TOOLTIP)
+        if definition:
+            definition.deleteMe()
+        definition = ui.commandDefinitions.addButtonDefinition(
+            CMD_ID, CMD_NAME, t('tooltip'))
 
         created = CreatedHandler()
         definition.commandCreated.add(created)
@@ -511,7 +608,7 @@ def run(context):
         adsk.autoTerminate(False)
     except Exception:
         if ui:
-            ui.messageBox('Error:\n{}'.format(traceback.format_exc()))
+            ui.messageBox(t('err_generic').format(traceback.format_exc()))
 
 
 def stop(context):

@@ -1,44 +1,48 @@
 # Fusion Local Backup
 
-Script para Autodesk Fusion que guarda una copia local de tus diseños: los saca de la nube a tu disco en F3D/F3Z y STEP.
+*[Leer en español](README.es.md)*
 
-## Qué hace (fase 1)
+A script for Autodesk Fusion that keeps a local copy of your designs: it takes them out of the cloud and saves them to your disk as F3D/F3Z and STEP.
 
-- **Formatos:** archivo de Fusion (F3D, o F3Z si el diseño tiene referencias externas) y STEP.
-- **Alcance:** un grupo de ficheros de un proyecto, un proyecto entero o todos los proyectos del hub activo.
-- **Estructura:** reproduce en disco `Hub / Proyecto / Carpetas / Diseño`.
-- **Registro:** al terminar guarda un `export_log_FECHA.csv` con el resultado de cada fichero.
-- **Reanudar:** la opción "Omitir los que ya existen en disco" permite continuar una exportación interrumpida.
+## What it does (phase 1)
 
-## Instalación
+- **Formats:** Fusion archive (F3D, or F3Z when the design has external references) and STEP.
+- **Scope:** a group of files in a project, a whole project, or every project in the active hub.
+- **Structure:** mirrors `Hub / Project / Folders / Design` on disk.
+- **Log:** when it finishes it saves an `export_log_DATE.csv` with the result for each file.
+- **Resume:** the "Skip files that already exist on disk" option lets you continue an interrupted export.
+- **Language:** the interface is in Spanish when Fusion runs in Spanish, and in English otherwise.
 
-1. Descarga este repositorio (Code > Download ZIP) y descomprímelo.
-2. En Fusion: **UTILIDADES > Complementos > Scripts y complementos**.
-3. Pulsa **+** y elige "Script o complemento desde el dispositivo".
-4. Selecciona la carpeta `FusionLocalBackup` (la que contiene `FusionLocalBackup.py`).
+## Installation
 
-## Uso
+1. Download this repository (Code > Download ZIP) and unzip it.
+2. In Fusion: **UTILITIES > Add-Ins > Scripts and Add-Ins**.
+3. Click **+** and choose "Script or add-in from device".
+4. Select the `FusionLocalBackup` folder (the one that contains `FusionLocalBackup.py`).
 
-1. Ejecuta el script desde la lista de scripts.
-2. Elige qué exportar: ficheros seleccionados, un proyecto o todo.
-3. Marca los formatos y la carpeta de destino.
-4. Pulsa Aceptar y deja Fusion trabajar. Abre cada diseño, lo exporta y lo cierra.
+## Usage
 
-## Limitaciones conocidas
+1. Run the script from the scripts list.
+2. Choose what to export: selected files, one project, or everything.
+3. Tick the formats and set the destination folder.
+4. Click OK and let Fusion work. It opens each design, exports it and closes it.
 
-- Fusion queda ocupado mientras dura el proceso.
-- Solo se exportan diseños 3D (`.f3d`). Planos, electrónica y otros ficheros se omiten y quedan anotados en el registro.
-- "Todo" significa todos los proyectos del hub activo. Para otro hub, cámbialo en el panel de datos y vuelve a ejecutar.
-- **F3Z usa un comando no documentado.** La API pública de Fusion no exporta F3Z; el script usa el comando de texto `data.fileExport`. Funciona (el F3Z resultante se ha reimportado en Fusion con los vínculos correctos), pero puede dejar de hacerlo con una actualización. Si falla, el error queda en el registro y el STEP se exporta igualmente.
-- **Cada F3Z genera un correo de Autodesk.** El F3Z se empaqueta en la nube de Autodesk, que envía un correo "is ready to be downloaded" por cada uno. No hace falta usar ese enlace: el fichero ya queda guardado en la carpeta de destino. Los F3D y STEP no envían ningún correo.
-- **Los ensamblajes duplican contenido.** Al exportar un proyecto con ensamblajes obtienes el F3D de cada pieza enlazada y, además, el F3Z del ensamblaje, que ya lleva esas mismas piezas dentro. Es normal: así cada diseño queda disponible por separado y el ensamblaje queda completo en un solo fichero.
-- En STEP solo se incluyen los cuerpos visibles.
+## Known limitations
 
-## Hoja de ruta
+- Fusion stays busy for the whole process.
+- Only 3D designs (`.f3d`) are exported. Drawings, electronics and other files are skipped and noted in the log.
+- "Everything" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.
+- **F3Z relies on an undocumented command.** Fusion's public API cannot export F3Z, so the script uses the `data.fileExport` text command. It works (the resulting F3Z has been re-imported into Fusion with its links intact), but an update could break it. If it fails, the error is logged and the STEP is still exported.
+- **Each F3Z triggers an email from Autodesk.** The F3Z is packaged in Autodesk's cloud, which sends an "is ready to be downloaded" email for each one. You do not need that link: the file is already saved in the destination folder. F3D and STEP exports send no email.
+- **Assemblies duplicate content.** When you export a project with assemblies you get the F3D of each linked part and also the assembly's F3Z, which already contains those same parts. This is expected: each design is available on its own and the assembly is complete in a single file.
+- The "skip existing" option only checks that a file with that name exists. It does not detect designs changed since the last export.
+- STEP files only include visible bodies.
 
-- Fase 2: exportación incremental (solo lo que ha cambiado desde la última vez, según el número de versión).
-- Más adelante: otros tipos de fichero (planos, electrónica, etc.).
+## Roadmap
 
-## Licencia
+- Phase 2: incremental export (only what has changed since last time, based on the version number).
+- Later: other file types (drawings, electronics, etc.).
 
-MIT. Consulta el fichero `LICENSE`.
+## License
+
+MIT. See the `LICENSE` file.
