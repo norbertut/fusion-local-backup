@@ -23,13 +23,13 @@ Script para Autodesk Fusion que guarda una copia local de tus diseños: los saca
 ## Instalación
 
 1. Descarga este repositorio (Code > Download ZIP) y descomprímelo.
-2. En Fusion: **UTILIDADES > Complementos > Scripts y complementos**.
-3. Pulsa **+** y elige "Script o complemento desde el dispositivo".
+2. En Fusion: **UTILIDADES > Complementos > Secuencias de comandos y complementos**.
+3. Pulsa **+** y elige la opción de añadir desde el dispositivo.
 4. Selecciona la carpeta `FusionLocalBackup` (la que contiene `FusionLocalBackup.py`).
 
 ## Uso
 
-1. Ejecuta el script desde la lista de scripts.
+1. En esa misma ventana, pulsa el icono ▶ de FusionLocalBackup.
 2. En "Selecciona los proyectos", marca los que quieres copiar, o marca "Todos los proyectos del hub".
 3. Marca los formatos y la carpeta de destino. El script recuerda la última carpeta usada.
 4. Pulsa Aceptar y deja Fusion trabajar. Primero rastrea los proyectos, mostrando cuántos ficheros lleva encontrados, y después abre, exporta y cierra cada diseño que lo necesite. Al final espera a los F3Z que aún estén en camino.

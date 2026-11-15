@@ -1,10 +1,11 @@
 {
 	"autodeskProduct": "Fusion",
 	"type": "script",
-	"author": "",
+	"author": "Norbert Rovira",
 	"description": {
 		"": "Local backup of your designs as F3D/F3Z and STEP, by project."
 	},
+	"version": "1.0.0",
 	"supportedOS": "windows|mac",
 	"editEnabled": true
 }

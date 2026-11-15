@@ -24,12 +24,12 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 
 1. Download this repository (Code > Download ZIP) and unzip it.
 2. In Fusion: **UTILITIES > Add-Ins > Scripts and Add-Ins**.
-3. Click **+** and choose "Script or add-in from device".
+3. Click **+** and choose the option to add from your device.
 4. Select the `FusionLocalBackup` folder (the one that contains `FusionLocalBackup.py`).
 
 ## Usage
 
-1. Run the script from the scripts list.
+1. In that same window, click the ▶ icon next to FusionLocalBackup.
 2. Under "Select the projects", tick the ones to back up, or tick "All projects in the hub".
 3. Tick the formats and set the destination folder. The script remembers the last folder you used.
 4. Click OK and let Fusion work. It first scans the projects, showing how many files it has found, and then opens, exports and closes each design that needs it. At the end it waits for any F3Z still on its way.

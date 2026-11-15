@@ -16,17 +16,23 @@ This guide explains how to install the script, make your first backup and keep i
 1. On the repository page, click **Code > Download ZIP** and unzip the file.
 2. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
 3. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins** (shortcut: `Shift + S`).
-4. Click the **+** button and choose **Script or add-in from device**.
+4. Click the **+** button, at the top left of the list, and choose the option to add from your device.
 5. Select the `FusionLocalBackup` folder.
 
 The script shows up in the list as **FusionLocalBackup**. You only need to install it once.
+
+The screenshots in this guide were taken with Fusion in Spanish.
+
+![Scripts and Add-Ins window with FusionLocalBackup in the list](img/scripts.jpg)
 
 To update it later, download the new version and replace the files in that folder.
 
 ## Your first backup
 
-1. In the Scripts and Add-Ins window, select **FusionLocalBackup** and click **Run**.
+1. In the Scripts and Add-Ins window, find **FusionLocalBackup** and click the ▶ icon in the **Run** column.
 2. The script's dialog opens, with these options:
+
+![Fusion Local Backup dialog](img/dialogo.jpg)
 
 | Option | What it is for |
 |---|---|
@@ -53,7 +59,7 @@ Do not use Fusion in the meantime: you will see designs opening and closing on t
 
 You can click **Cancel** at any time. The script finishes the design it has open and stops. What has been exported is recorded, so the next run carries on from there.
 
-When it finishes, a summary appears (shown here in Spanish):
+When it finishes, a summary appears:
 
 ![Final summary of a backup](img/resumen.png)
 

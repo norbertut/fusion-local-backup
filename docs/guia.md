@@ -15,18 +15,22 @@ Esta guía explica cómo instalar el script, hacer la primera copia y mantenerla
 
 1. En la página del repositorio, pulsa **Code > Download ZIP** y descomprime el fichero.
 2. Dentro encontrarás una carpeta llamada `FusionLocalBackup`, con `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. Esa carpeta es el script.
-3. En Fusion, abre **UTILIDADES > Complementos > Scripts y complementos** (atajo: `Mayús + S`).
-4. Pulsa el botón **+** y elige **Script o complemento desde el dispositivo**.
+3. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos** (atajo: `Mayús + S`).
+4. Pulsa el botón **+**, arriba a la izquierda de la lista, y elige la opción de añadir desde el dispositivo.
 5. Selecciona la carpeta `FusionLocalBackup`.
 
 El script aparece en la lista como **FusionLocalBackup**. Solo hay que instalarlo una vez.
+
+![Ventana de Secuencias de comandos y complementos con FusionLocalBackup en la lista](img/scripts.jpg)
 
 Para actualizarlo más adelante, descarga la versión nueva y sustituye los ficheros de esa carpeta.
 
 ## Tu primera copia
 
-1. En la ventana de Scripts y complementos, selecciona **FusionLocalBackup** y pulsa **Ejecutar**.
+1. En la ventana de Secuencias de comandos y complementos, busca **FusionLocalBackup** y pulsa el icono ▶ de la columna **Ejecutar**.
 2. Se abre el diálogo del script, con estas opciones:
+
+![Diálogo de Fusion Local Backup](img/dialogo.jpg)
 
 | Opción | Para qué sirve |
 |---|---|
