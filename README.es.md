@@ -22,10 +22,20 @@ Script para Autodesk Fusion que guarda una copia local de tus diseños: los saca
 
 ## Instalación
 
-1. Descarga este repositorio (Code > Download ZIP) y descomprímelo.
-2. En Fusion: **UTILIDADES > Complementos > Secuencias de comandos y complementos**.
-3. Pulsa **+** y elige la opción de añadir desde el dispositivo.
-4. Selecciona la carpeta `FusionLocalBackup` (la que contiene `FusionLocalBackup.py`).
+Descarga este repositorio (Code > Download ZIP) y descomprímelo. Dentro está la carpeta `FusionLocalBackup`, que es el script. Hay dos formas de instalarlo:
+
+**Opción A: en la carpeta de scripts de Fusion.** Fusion lo reconoce directamente.
+
+1. Copia la carpeta `FusionLocalBackup` en la carpeta de scripts de Fusion:
+   - Windows: `%appdata%\Autodesk\Autodesk Fusion 360\API\Scripts`
+   - Mac: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/Scripts`
+2. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos**. El script ya aparece en la lista; si no, reinicia Fusion.
+
+**Opción B: en la carpeta que tú quieras.**
+
+1. Deja la carpeta `FusionLocalBackup` en un sitio definitivo. Fusion la usa desde ahí, así que no la muevas ni la borres después.
+2. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos**.
+3. Pulsa **+**, elige la opción de añadir desde el dispositivo y selecciona la carpeta `FusionLocalBackup`.
 
 ## Uso
 

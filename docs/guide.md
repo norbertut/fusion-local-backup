@@ -13,17 +13,31 @@ This guide explains how to install the script, make your first backup and keep i
 
 ## Installation
 
-1. On the repository page, click **Code > Download ZIP** and unzip the file.
-2. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
-3. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins** (shortcut: `Shift + S`).
-4. Click the **+** button, at the top left of the list, and choose the option to add from your device.
-5. Select the `FusionLocalBackup` folder.
+On the repository page, click **Code > Download ZIP** and unzip the file. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
 
-The script shows up in the list as **FusionLocalBackup**. You only need to install it once.
+There are two ways to install it. Pick the one you prefer.
+
+### Option A: in Fusion's scripts folder
+
+Fusion picks up whatever is in its scripts folder directly.
+
+1. Copy the `FusionLocalBackup` folder into Fusion's scripts folder:
+   - Windows: `%appdata%\Autodesk\Autodesk Fusion 360\API\Scripts`. You can paste that path as is into the File Explorer address bar.
+   - Mac: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/Scripts`. In Finder, use **Go > Go to Folder** and paste the path.
+2. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins** (shortcut: `Shift + S`). The script is already in the list; if not, restart Fusion.
+
+### Option B: in any folder you like
+
+1. Put the `FusionLocalBackup` folder somewhere permanent. Fusion does not copy it, it runs it from where it is, so if you move or delete it later the script will stop working.
+2. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins** (shortcut: `Shift + S`).
+3. Click the **+** button, at the top left of the list, and choose the option to add from your device.
+4. Select the `FusionLocalBackup` folder.
+
+Either way, the script shows up in the list as **FusionLocalBackup**. You only need to install it once.
 
 ![Scripts and Add-Ins window with FusionLocalBackup in the list](img/scripts-en.jpg)
 
-To update it later, download the new version and replace the files in that folder.
+To update it later, download the new version and replace the files in the folder where you installed it.
 
 ## Your first backup
 

@@ -13,17 +13,31 @@ Esta guía explica cómo instalar el script, hacer la primera copia y mantenerla
 
 ## Instalación
 
-1. En la página del repositorio, pulsa **Code > Download ZIP** y descomprime el fichero.
-2. Dentro encontrarás una carpeta llamada `FusionLocalBackup`, con `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. Esa carpeta es el script.
-3. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos** (atajo: `Mayús + S`).
-4. Pulsa el botón **+**, arriba a la izquierda de la lista, y elige la opción de añadir desde el dispositivo.
-5. Selecciona la carpeta `FusionLocalBackup`.
+En la página del repositorio, pulsa **Code > Download ZIP** y descomprime el fichero. Dentro encontrarás una carpeta llamada `FusionLocalBackup`, con `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. Esa carpeta es el script.
 
-El script aparece en la lista como **FusionLocalBackup**. Solo hay que instalarlo una vez.
+Hay dos formas de instalarlo. Elige la que prefieras.
+
+### Opción A: en la carpeta de scripts de Fusion
+
+Fusion reconoce directamente lo que hay en su carpeta de scripts.
+
+1. Copia la carpeta `FusionLocalBackup` en la carpeta de scripts de Fusion:
+   - Windows: `%appdata%\Autodesk\Autodesk Fusion 360\API\Scripts`. Puedes pegar esa ruta tal cual en la barra de direcciones del Explorador de archivos.
+   - Mac: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/Scripts`. En Finder, usa **Ir > Ir a la carpeta** y pega la ruta.
+2. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos** (atajo: `Mayús + S`). El script ya aparece en la lista; si no, reinicia Fusion.
+
+### Opción B: en la carpeta que tú quieras
+
+1. Deja la carpeta `FusionLocalBackup` en un sitio definitivo. Fusion no la copia, la usa desde donde esté, así que si después la mueves o la borras el script dejará de funcionar.
+2. En Fusion, abre **UTILIDADES > Complementos > Secuencias de comandos y complementos** (atajo: `Mayús + S`).
+3. Pulsa el botón **+**, arriba a la izquierda de la lista, y elige la opción de añadir desde el dispositivo.
+4. Selecciona la carpeta `FusionLocalBackup`.
+
+Con cualquiera de las dos, el script aparece en la lista como **FusionLocalBackup**. Solo hay que instalarlo una vez.
 
 ![Ventana de Secuencias de comandos y complementos con FusionLocalBackup en la lista](img/scripts.jpg)
 
-Para actualizarlo más adelante, descarga la versión nueva y sustituye los ficheros de esa carpeta.
+Para actualizarlo más adelante, descarga la versión nueva y sustituye los ficheros de la carpeta donde lo instalaste.
 
 ## Tu primera copia
 

@@ -22,10 +22,20 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 
 ## Installation
 
-1. Download this repository (Code > Download ZIP) and unzip it.
-2. In Fusion: **UTILITIES > Add-Ins > Scripts and Add-Ins**.
-3. Click **+** and choose the option to add from your device.
-4. Select the `FusionLocalBackup` folder (the one that contains `FusionLocalBackup.py`).
+Download this repository (Code > Download ZIP) and unzip it. Inside is the `FusionLocalBackup` folder, which is the script. There are two ways to install it:
+
+**Option A: in Fusion's scripts folder.** Fusion picks it up directly.
+
+1. Copy the `FusionLocalBackup` folder into Fusion's scripts folder:
+   - Windows: `%appdata%\Autodesk\Autodesk Fusion 360\API\Scripts`
+   - Mac: `~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/Scripts`
+2. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins**. The script is already in the list; if not, restart Fusion.
+
+**Option B: in any folder you like.**
+
+1. Put the `FusionLocalBackup` folder somewhere permanent. Fusion runs it from there, so do not move or delete it afterwards.
+2. In Fusion, open **UTILITIES > Add-Ins > Scripts and Add-Ins**.
+3. Click **+**, choose the option to add from your device and select the `FusionLocalBackup` folder.
 
 ## Usage
 
