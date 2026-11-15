@@ -6,8 +6,7 @@ Fusion Local Backup - Copia local de tus diseños de Autodesk Fusion.
 Phase 1 / Fase 1:
   * Formats: Fusion archive (F3D, or F3Z when the design has external
     references) and STEP.
-  * Scope: a group of files, a whole project or every project in the
-    active hub.
+  * Scope: one or several projects, or every project in the active hub.
   * Mirrors the Hub / Project / Folders structure on disk.
 
 Phase 2 / Fase 2:
@@ -35,14 +34,8 @@ import adsk.fusion
 CMD_ID = 'fusionLocalBackupCmd'
 CMD_NAME = 'Fusion Local Backup'
 
-# Scope options, in the same order as the drop-down list.
-SCOPE_FILES = 0
-SCOPE_PROJECT = 1
-SCOPE_ALL = 2
-
-ID_SCOPE = 'scope'
-ID_PROJECT = 'project'
-ID_FILES = 'files'
+ID_ALL = 'allProjects'
+ID_PROJECTS = 'projects'
 ID_F3D = 'fmtF3d'
 ID_STEP = 'fmtStep'
 ID_FOLDER = 'outFolder'
@@ -67,9 +60,7 @@ lang = 'en'
 
 # State shared between the dialog handlers.
 state = {
-    'projects': [],      # DataProject, same order as the drop-down
-    'files': [],         # (DataFile, [folders]) in list order
-    'files_project': -1  # index of the project whose files are loaded
+    'projects': []       # DataProject, same order as the list
 }
 
 
@@ -79,16 +70,15 @@ state = {
 
 TEXTS = {
     'tooltip': {
-        'en': 'Exports designs to F3D/F3Z and STEP by files, project or hub.',
-        'es': 'Exporta diseños a F3D/F3Z y STEP por ficheros, proyecto o hub.'},
-    'scope': {'en': 'What to export', 'es': 'Qué exportar'},
-    'scope_files': {'en': 'Selected files', 'es': 'Ficheros seleccionados'},
-    'scope_project': {'en': 'One project', 'es': 'Un proyecto'},
-    'scope_all': {
-        'en': 'Everything (all projects in the hub)',
-        'es': 'Todo (todos los proyectos del hub)'},
-    'project': {'en': 'Project', 'es': 'Proyecto'},
-    'files': {'en': 'Files', 'es': 'Ficheros'},
+        'en': 'Local backup of your designs as F3D/F3Z and STEP, by project.',
+        'es': 'Copia local de tus diseños en F3D/F3Z y STEP, por proyectos.'},
+    'all_projects': {
+        'en': 'All projects in the hub',
+        'es': 'Todos los proyectos del hub'},
+    'projects': {'en': 'Projects', 'es': 'Proyectos'},
+    'scanning': {
+        'en': 'Scanning project {}...\n{} files found',
+        'es': 'Rastreando el proyecto {}...\n{} ficheros encontrados'},
     'fmt_archive': {
         'en': 'Fusion archive (F3D / F3Z)',
         'es': 'Archivo Fusion (F3D / F3Z)'},
@@ -310,41 +300,44 @@ def export_f3z(folder, base):
 # Main process
 # --------------------------------------------------------------------------
 
-def collect_targets(scope, project_index, selected_file_indexes):
-    """Returns a list of (DataFile, [hub, project, folders...])."""
+def collect_targets(projects):
+    """
+    Walks the given projects and returns (targets, prefixes).
+
+    targets: list of (DataFile, [hub, project, folders...]).
+    prefixes: the 'hub/project' paths that were fully walked.
+    Returns (None, None) when the user cancels. Walking a large project
+    takes a while, so progress is shown from the start.
+    """
     hub_name = sanitize(app.data.activeHub.name)
     targets = []
+    prefixes = []
 
-    if scope == SCOPE_FILES:
-        project = state['projects'][project_index]
-        prefix = [hub_name, sanitize(project.name)]
-        for i in selected_file_indexes:
-            data_file, parts = state['files'][i]
-            targets.append((data_file, prefix + parts))
-        return targets
+    progress = ui.createProgressDialog()
+    progress.cancelButtonText = t('cancel')
+    progress.isCancelButtonShown = True
+    progress.isBackgroundTranslucent = False
+    progress.show(CMD_NAME, t('scanning').format('', 0), 0, max(len(projects), 1), 0)
 
-    if scope == SCOPE_PROJECT:
-        projects = [state['projects'][project_index]]
-    else:
-        projects = state['projects']
-
-    for project in projects:
-        prefix = [hub_name, sanitize(project.name)]
-        for data_file, parts in walk_folder(project.rootFolder, []):
-            targets.append((data_file, prefix + parts))
-    return targets
-
-
-def scanned_prefixes(scope, project_index):
-    """'hub/project' prefixes fully walked in this run (None for loose files)."""
-    if scope == SCOPE_FILES:
-        return None
-    hub_name = sanitize(app.data.activeHub.name)
-    if scope == SCOPE_PROJECT:
-        projects = [state['projects'][project_index]]
-    else:
-        projects = state['projects']
-    return ['{}/{}'.format(hub_name, sanitize(p.name)) for p in projects]
+    try:
+        for position, project in enumerate(projects):
+            progress.progressValue = position
+            progress.message = t('scanning').format(project.name, len(targets))
+            adsk.doEvents()
+            prefix = [hub_name, sanitize(project.name)]
+            for data_file, parts in walk_folder(project.rootFolder, []):
+                targets.append((data_file, prefix + parts))
+                if len(targets) % 5 == 0:
+                    progress.message = t('scanning').format(project.name, len(targets))
+                    adsk.doEvents()
+                    if progress.wasCancelled:
+                        return None, None
+            if progress.wasCancelled:
+                return None, None
+            prefixes.append('/'.join(prefix))
+    finally:
+        progress.hide()
+    return targets, prefixes
 
 
 def load_settings():
@@ -628,35 +621,12 @@ def write_log(out_root, log):
 # Dialog
 # --------------------------------------------------------------------------
 
-def selected_index(inputs, input_id):
-    item = inputs.itemById(input_id).selectedItem
-    return item.index if item else -1
-
-
-def load_files(inputs):
-    """Loads the designs of the chosen project into the list."""
-    index = selected_index(inputs, ID_PROJECT)
-    files_input = inputs.itemById(ID_FILES)
-    if index < 0 or index == state['files_project']:
-        return
-    files_input.listItems.clear()
-    state['files'] = []
-    project = state['projects'][index]
-    found = [(f, parts) for f, parts in walk_folder(project.rootFolder, [])
-             if extension_of(f) == 'f3d']
-    found.sort(key=lambda entry: '/'.join(entry[1] + [entry[0].name]).lower())
-    for data_file, parts in found:
-        files_input.listItems.add('/'.join(parts + [data_file.name]), False, '')
-    state['files'] = found
-    state['files_project'] = index
-
-
-def refresh_visibility(inputs):
-    scope = selected_index(inputs, ID_SCOPE)
-    inputs.itemById(ID_PROJECT).isVisible = scope != SCOPE_ALL
-    inputs.itemById(ID_FILES).isVisible = scope == SCOPE_FILES
-    if scope == SCOPE_FILES:
-        load_files(inputs)
+def selected_projects(inputs):
+    """Projects chosen in the dialog."""
+    if inputs.itemById(ID_ALL).value:
+        return list(state['projects'])
+    listed = inputs.itemById(ID_PROJECTS).listItems
+    return [state['projects'][i] for i in range(listed.count) if listed.item(i).isSelected]
 
 
 class CreatedHandler(adsk.core.CommandCreatedEventHandler):
@@ -664,48 +634,36 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
         try:
             command = args.command
             inputs = command.commandInputs
-            styles = adsk.core.DropDownStyles
+            settings = load_settings()
 
-            # Added in the same order as SCOPE_FILES, SCOPE_PROJECT, SCOPE_ALL.
-            scope = inputs.addDropDownCommandInput(
-                ID_SCOPE, t('scope'), styles.TextListDropDownStyle)
-            scope.listItems.add(t('scope_files'), False, '')
-            scope.listItems.add(t('scope_project'), True, '')
-            scope.listItems.add(t('scope_all'), False, '')
-
-            project = inputs.addDropDownCommandInput(
-                ID_PROJECT, t('project'), styles.TextListDropDownStyle)
             state['projects'] = list(items(app.data.activeHub.dataProjects))
-            state['files'] = []
-            state['files_project'] = -1
-            active_id = None
-            try:
-                active_id = app.data.activeProject.id
-            except Exception:
-                pass
-            any_selected = False
-            for data_project in state['projects']:
-                is_active = data_project.id == active_id
-                any_selected = any_selected or is_active
-                project.listItems.add(data_project.name, is_active, '')
-            if not any_selected and project.listItems.count:
-                project.listItems.item(0).isSelected = True
 
-            inputs.addDropDownCommandInput(
-                ID_FILES, t('files'), styles.CheckBoxDropDownStyle)
+            # Start from the last selection; the first time, from the active project.
+            remembered = settings.get('projects')
+            if remembered is None:
+                try:
+                    remembered = [app.data.activeProject.id]
+                except Exception:
+                    remembered = []
+            all_projects = bool(settings.get('all', False))
+
+            inputs.addBoolValueInput(ID_ALL, t('all_projects'), True, '', all_projects)
+            projects = inputs.addDropDownCommandInput(
+                ID_PROJECTS, t('projects'), adsk.core.DropDownStyles.CheckBoxDropDownStyle)
+            for data_project in state['projects']:
+                projects.listItems.add(data_project.name, data_project.id in remembered, '')
+            projects.isVisible = not all_projects
 
             inputs.addBoolValueInput(ID_F3D, t('fmt_archive'), True, '', True)
             inputs.addBoolValueInput(ID_STEP, 'STEP', True, '', True)
 
-            default_folder = load_settings().get('folder') or os.path.join(
+            default_folder = settings.get('folder') or os.path.join(
                 os.path.expanduser('~'), 'FusionLocalBackup')
             inputs.addStringValueInput(ID_FOLDER, t('out_folder'), default_folder)
             inputs.addBoolValueInput(ID_BROWSE, t('browse'), False, '', False)
             inputs.addBoolValueInput(ID_FORCE, t('force'), True, '', False)
             inputs.addTextBoxCommandInput(
                 ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
-
-            refresh_visibility(inputs)
 
             for handler_class, event in (
                     (InputChangedHandler, command.inputChanged),
@@ -724,8 +682,8 @@ class InputChangedHandler(adsk.core.InputChangedEventHandler):
         try:
             inputs = args.firingEvent.sender.commandInputs
             changed = args.input.id
-            if changed in (ID_SCOPE, ID_PROJECT):
-                refresh_visibility(inputs)
+            if changed == ID_ALL:
+                inputs.itemById(ID_PROJECTS).isVisible = not inputs.itemById(ID_ALL).value
             elif changed == ID_BROWSE:
                 dialog = ui.createFolderDialog()
                 dialog.title = t('out_folder')
@@ -741,12 +699,7 @@ class ValidateHandler(adsk.core.ValidateInputsEventHandler):
             inputs = args.firingEvent.sender.commandInputs
             valid = bool(inputs.itemById(ID_FOLDER).value.strip())
             valid = valid and (inputs.itemById(ID_F3D).value or inputs.itemById(ID_STEP).value)
-            scope = selected_index(inputs, ID_SCOPE)
-            if scope != SCOPE_ALL:
-                valid = valid and selected_index(inputs, ID_PROJECT) >= 0
-            if scope == SCOPE_FILES:
-                files = inputs.itemById(ID_FILES).listItems
-                valid = valid and any(files.item(i).isSelected for i in range(files.count))
+            valid = valid and bool(selected_projects(inputs))
             args.areInputsValid = bool(valid)
         except Exception:
             args.areInputsValid = False
@@ -756,26 +709,32 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
     def notify(self, args):
         try:
             inputs = args.command.commandInputs
-            scope = selected_index(inputs, ID_SCOPE)
             out_root = os.path.abspath(
                 os.path.expanduser(inputs.itemById(ID_FOLDER).value.strip()))
             want_archive = inputs.itemById(ID_F3D).value
             want_step = inputs.itemById(ID_STEP).value
             force = inputs.itemById(ID_FORCE).value
-            project_index = selected_index(inputs, ID_PROJECT)
-            files = inputs.itemById(ID_FILES).listItems
-            selected = [i for i in range(files.count) if files.item(i).isSelected]
+            all_projects = inputs.itemById(ID_ALL).value
+            projects = selected_projects(inputs)
 
             os.makedirs(out_root, exist_ok=True)
-            save_settings({'folder': out_root})
-            targets = collect_targets(scope, project_index, selected)
+            listed = inputs.itemById(ID_PROJECTS).listItems
+            save_settings({
+                'folder': out_root,
+                'all': all_projects,
+                'projects': [state['projects'][i].id for i in range(listed.count)
+                             if listed.item(i).isSelected]})
+
+            targets, prefixes = collect_targets(projects)
+            if targets is None:
+                ui.messageBox(t('cancelled'), CMD_NAME)
+                return
             if not targets:
                 ui.messageBox(t('nothing_found'))
                 return
 
             log, counts, cancelled = run_export(
-                targets, out_root, want_archive, want_step, force,
-                scanned_prefixes(scope, project_index))
+                targets, out_root, want_archive, want_step, force, prefixes)
             log_path = write_log(out_root, log)
 
             ui.messageBox(

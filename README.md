@@ -7,7 +7,7 @@ A script for Autodesk Fusion that keeps a local copy of your designs: it takes t
 ## What it does
 
 - **Formats:** Fusion archive (F3D, or F3Z when the design has external references) and STEP.
-- **Scope:** a group of files in a project, a whole project, or every project in the active hub.
+- **Scope:** tick the projects you want to back up, or all the projects in the active hub. The script remembers your selection, so the next backup is open and OK.
 - **Structure:** mirrors `Hub / Project / Folders / Design` on disk.
 - **Log:** when it finishes it saves an `export_log_DATE.csv` with the result for each file.
 - **Incremental:** an index file in the destination folder (`fusion-local-backup.json`) records which version of each design was exported, per format. Later runs only open and export designs that are new or have changed, so keep using the same destination folder. Only the latest version is kept on disk.
@@ -27,15 +27,15 @@ A script for Autodesk Fusion that keeps a local copy of your designs: it takes t
 ## Usage
 
 1. Run the script from the scripts list.
-2. Choose what to export: selected files, one project, or everything.
+2. Tick the projects to back up, or "All projects in the hub".
 3. Tick the formats and set the destination folder. The script remembers the last folder you used.
-4. Click OK and let Fusion work. It opens each design, exports it and closes it.
+4. Click OK and let Fusion work. It first scans the projects, showing how many files it has found, and then opens, exports and closes each design that needs it.
 
 ## Known limitations
 
 - Fusion stays busy for the whole process.
 - Only 3D designs (`.f3d`) are exported. Drawings, electronics and other files are skipped and noted in the log.
-- "Everything" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.
+- "All projects" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.
 - **F3Z relies on an undocumented command.** Fusion's public API cannot export F3Z, so the script uses the `data.fileExport` text command. It works (the resulting F3Z has been re-imported into Fusion with its links intact), but an update could break it. If it fails, the error is logged and the STEP is still exported.
 - **Each F3Z triggers an email from Autodesk.** The F3Z is packaged in Autodesk's cloud, which sends an "is ready to be downloaded" email for each one. You do not need that link: the file is already saved in the destination folder. F3D and STEP exports send no email.
 - **Assemblies duplicate content.** When you export a project with assemblies you get the F3D of each linked part and also the assembly's F3Z, which already contains those same parts. This is expected: each design is available on its own and the assembly is complete in a single file.
