@@ -127,6 +127,7 @@ TEXTS = {
     'status_skipped': {'en': 'skipped', 'es': 'omitido'},
     'status_error': {'en': 'error', 'es': 'error'},
     'status_gone': {'en': 'not in cloud', 'es': 'no está en la nube'},
+    'duration': {'en': 'duration', 'es': 'duración'},
     'log_header': {
         'en': ['status', 'file', 'detail'],
         'es': ['estado', 'fichero', 'detalle']},
@@ -137,9 +138,9 @@ TEXTS = {
     'cancelled': {'en': 'Export cancelled.', 'es': 'Exportación cancelada.'},
     'summary': {
         'en': '{}\n\nExported: {}\nUp to date or skipped: {}\nWith errors: {}\n'
-              'No longer in the cloud: {}\n\nFolder: {}\nLog: {}',
+              'No longer in the cloud: {}\nDuration: {}\n\nFolder: {}\nLog: {}',
         'es': '{}\n\nExportados: {}\nAl día u omitidos: {}\nCon errores: {}\n'
-              'Ya no están en la nube: {}\n\nCarpeta: {}\nRegistro: {}'},
+              'Ya no están en la nube: {}\nDuración: {}\n\nCarpeta: {}\nRegistro: {}'},
     'err_dialog': {
         'en': 'Error creating the dialog:\n{}',
         'es': 'Error al crear el diálogo:\n{}'},
@@ -606,7 +607,12 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None)
     return log, counts, cancelled
 
 
-def write_log(out_root, log):
+def format_duration(seconds):
+    seconds = int(round(seconds))
+    return '{:d}:{:02d}:{:02d}'.format(seconds // 3600, seconds % 3600 // 60, seconds % 60)
+
+
+def write_log(out_root, log, duration=None):
     stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     path = os.path.join(out_root, 'export_log_{}.csv'.format(stamp))
     with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
@@ -614,6 +620,8 @@ def write_log(out_root, log):
         writer.writerow(t('log_header'))
         for status, where, detail in log:
             writer.writerow([t('status_' + status), where, detail])
+        if duration is not None:
+            writer.writerow([t('duration'), '', format_duration(duration)])
     return path
 
 
@@ -725,6 +733,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 'projects': [state['projects'][i].id for i in range(listed.count)
                              if listed.item(i).isSelected]})
 
+            started = time.time()
             targets, prefixes = collect_targets(projects)
             if targets is None:
                 ui.messageBox(t('cancelled'), CMD_NAME)
@@ -735,13 +744,15 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
 
             log, counts, cancelled = run_export(
                 targets, out_root, want_archive, want_step, force, prefixes)
-            log_path = write_log(out_root, log)
+            duration = time.time() - started
+            log_path = write_log(out_root, log, duration)
 
             ui.messageBox(
                 t('summary').format(
                     t('cancelled') if cancelled else t('done'),
                     counts['ok'], counts['skipped'], counts['error'],
-                    counts['gone'], out_root, os.path.basename(log_path)),
+                    counts['gone'], format_duration(duration), out_root,
+                    os.path.basename(log_path)),
                 CMD_NAME)
         except Exception:
             ui.messageBox(t('err_export').format(traceback.format_exc()))
