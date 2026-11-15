@@ -21,9 +21,7 @@ This guide explains how to install the script, make your first backup and keep i
 
 The script shows up in the list as **FusionLocalBackup**. You only need to install it once.
 
-The screenshots in this guide were taken with Fusion in Spanish.
-
-![Scripts and Add-Ins window with FusionLocalBackup in the list](img/scripts.jpg)
+![Scripts and Add-Ins window with FusionLocalBackup in the list](img/scripts-en.jpg)
 
 To update it later, download the new version and replace the files in that folder.
 
@@ -32,7 +30,7 @@ To update it later, download the new version and replace the files in that folde
 1. In the Scripts and Add-Ins window, find **FusionLocalBackup** and click the ▶ icon in the **Run** column.
 2. The script's dialog opens, with these options:
 
-![Fusion Local Backup dialog](img/dialogo.jpg)
+![Fusion Local Backup dialog](img/dialog-en.jpg)
 
 | Option | What it is for |
 |---|---|
@@ -62,6 +60,8 @@ You can click **Cancel** at any time. The script finishes the design it has open
 When it finishes, a summary appears:
 
 ![Final summary of a backup](img/resumen.png)
+
+*This screenshot was taken with Fusion in Spanish.*
 
 ## What you will find in the destination folder
 
