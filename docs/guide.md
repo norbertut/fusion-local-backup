@@ -13,7 +13,7 @@ This guide explains how to install the script, make your first backup and keep i
 
 ## Installation
 
-On the repository page, click **Code > Download ZIP** and unzip the file. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
+Download the ZIP of the [latest release](https://github.com/norbertut/fusion-local-backup/releases/latest) (the `FusionLocalBackup-v….zip` file under Assets) and unzip it. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
 
 There are two ways to install it. Pick the one you prefer.
 

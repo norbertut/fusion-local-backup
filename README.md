@@ -22,7 +22,7 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 
 ## Installation
 
-Download this repository (Code > Download ZIP) and unzip it. Inside is the `FusionLocalBackup` folder, which is the script. There are two ways to install it:
+Download the ZIP of the [latest release](https://github.com/norbertut/fusion-local-backup/releases/latest) and unzip it. Inside is the `FusionLocalBackup` folder, which is the script. There are two ways to install it:
 
 **Option A: in Fusion's scripts folder.** Fusion picks it up directly.
 
