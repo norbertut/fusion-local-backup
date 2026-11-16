@@ -129,6 +129,9 @@ TEXTS = {
     'f3z_failed': {
         'en': 'The F3Z was not generated (data.fileExport returned nothing)',
         'es': 'No se generó el F3Z (comando data.fileExport sin resultado)'},
+    'scan_error': {
+        'en': 'Could not be read from the cloud; not backed up in this run ({})',
+        'es': 'No se pudo leer de la nube; no se ha copiado en esta ejecución ({})'},
     'status_ok': {'en': 'ok', 'es': 'ok'},
     'status_skipped': {'en': 'skipped', 'es': 'omitido'},
     'status_error': {'en': 'error', 'es': 'error'},
@@ -193,12 +196,50 @@ def items(collection):
             yield item
 
 
-def walk_folder(folder, parts):
+def fetch(getter, attempts=3):
+    """Calls the cloud, retrying: the data service fails now and then."""
+    for attempt in range(attempts):
+        try:
+            return getter()
+        except Exception:
+            if attempt == attempts - 1:
+                raise
+            time.sleep(1.5)
+            adsk.doEvents()
+
+
+def scan_items(get_collection, where, problems):
+    """Yields the items of a cloud collection. What cannot be read after
+    several attempts is noted in problems and skipped, so that one bad
+    item does not abort the whole backup."""
+    try:
+        collection = fetch(get_collection)
+        count = fetch(lambda: collection.count)
+    except Exception as exc:
+        problems.append((where, str(exc)))
+        return
+    for i in range(count):
+        try:
+            item = fetch(lambda: collection.item(i))
+        except Exception as exc:
+            problems.append(('{} [{}/{}]'.format(where, i + 1, count), str(exc)))
+            continue
+        if item:
+            yield item
+
+
+def walk_folder(folder, parts, problems):
     """Walks a data folder and yields (DataFile, [folders])."""
-    for data_file in items(folder.dataFiles):
+    where = '/'.join(parts)
+    for data_file in scan_items(lambda: folder.dataFiles, where, problems):
         yield data_file, parts
-    for sub in items(folder.dataFolders):
-        for result in walk_folder(sub, parts + [sanitize(sub.name)]):
+    for sub in scan_items(lambda: folder.dataFolders, where, problems):
+        try:
+            name = sanitize(fetch(lambda: sub.name))
+        except Exception as exc:
+            problems.append((where, str(exc)))
+            continue
+        for result in walk_folder(sub, parts + [name], problems):
             yield result
 
 
@@ -298,6 +339,7 @@ def collect_targets(projects):
     hub_name = sanitize(app.data.activeHub.name)
     targets = []
     prefixes = []
+    problems = []     # (path, error) of what could not be read
 
     progress = ui.createProgressDialog()
     progress.cancelButtonText = t('cancel')
@@ -311,19 +353,28 @@ def collect_targets(projects):
             progress.message = t('scanning').format(project.name, len(targets))
             adsk.doEvents()
             prefix = [hub_name, sanitize(project.name)]
-            for data_file, parts in walk_folder(project.rootFolder, []):
-                targets.append((data_file, prefix + parts))
+            before = len(problems)
+            try:
+                root = fetch(lambda: project.rootFolder)
+            except Exception as exc:
+                problems.append(('/'.join(prefix), str(exc)))
+                continue
+            for data_file, parts in walk_folder(root, prefix, problems):
+                targets.append((data_file, parts))
                 if len(targets) % 5 == 0:
                     progress.message = t('scanning').format(project.name, len(targets))
                     adsk.doEvents()
                     if progress.wasCancelled:
-                        return None, None
+                        return None, None, None
             if progress.wasCancelled:
-                return None, None
-            prefixes.append('/'.join(prefix))
+                return None, None, None
+            # A project that was not read in full is left out of the check
+            # for designs deleted in the cloud, to avoid false reports.
+            if len(problems) == before:
+                prefixes.append('/'.join(prefix))
     finally:
         progress.hide()
-    return targets, prefixes
+    return targets, prefixes, problems
 
 
 def load_settings():
@@ -431,13 +482,17 @@ def relocate(out_root, entry, parts, name, used):
     entry['base'] = new_base
 
 
-def run_export(targets, out_root, want_archive, want_step, force, prefixes=None):
+def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
+               scan_problems=None):
     log = []          # (status key, path, detail)
     counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0}
 
     def record(status, where, detail=''):
         log.append((status, where, detail))
         counts[status] += 1
+
+    for where, detail in scan_problems or []:
+        record('error', where, t('scan_error').format(detail))
 
     def report(where, version, done, errors, outdated, moved):
         """Writes the log line of a design once all its exports are settled."""
@@ -782,16 +837,17 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                              if listed.item(i).isSelected]})
 
             started = time.time()
-            targets, prefixes = collect_targets(projects)
+            targets, prefixes, problems = collect_targets(projects)
             if targets is None:
                 ui.messageBox(t('cancelled'), CMD_NAME)
                 return
-            if not targets:
+            if not targets and not problems:
                 ui.messageBox(t('nothing_found'))
                 return
 
             log, counts, cancelled = run_export(
-                targets, out_root, want_archive, want_step, force, prefixes)
+                targets, out_root, want_archive, want_step, force, prefixes,
+                problems)
             duration = time.time() - started
             log_path = write_log(out_root, log, duration)
 
