@@ -2,13 +2,14 @@
 
 *[Read in English](README.md)*
 
-Script para Autodesk Fusion que guarda una copia local de tus diseños: los saca de la nube a tu disco en F3D/F3Z y STEP.
+Script para Autodesk Fusion que guarda una copia local de tus proyectos: saca los diseños de la nube a tu disco en F3D/F3Z y STEP, junto con los demás ficheros del proyecto.
 
 ¿Primera vez? La **[guía de uso](docs/guia.md)** explica paso a paso la instalación, la primera copia y cómo mantenerla al día.
 
 ## Qué hace
 
 - **Formatos:** archivo de Fusion (F3D, o F3Z si el diseño tiene referencias externas) y STEP.
+- **Otros ficheros del proyecto:** las imágenes, SVG, DXF, PDF y demás ficheros que hayas subido al hub se copian tal cual, sin convertir.
 - **Alcance:** marca los proyectos que quieres copiar, o todos los proyectos del hub activo. El script recuerda tu selección, así que la siguiente copia es abrir y Aceptar.
 - **Estructura:** reproduce en disco `Hub / Proyecto / Carpetas / Diseño`.
 - **Registro:** al terminar guarda un `export_log_FECHA.csv` con el resultado de cada fichero y la duración total.
@@ -59,7 +60,7 @@ El registro y el mensaje final indican la duración de cada ejecución, así que
 ## Limitaciones conocidas
 
 - Fusion queda ocupado mientras dura el proceso.
-- Solo se exportan diseños 3D (`.f3d`). Planos, electrónica y otros ficheros se omiten y quedan anotados en el registro.
+- De Fusion solo se exportan los diseños 3D (`.f3d`). Los dibujos (planos) y la electrónica todavía no se copian; quedan anotados en el registro como omitidos.
 - "Todos los proyectos" significa todos los del hub activo. Para otro hub, cámbialo en el panel de datos y vuelve a ejecutar.
 - **F3Z usa un comando no documentado.** La API pública de Fusion no exporta F3Z; el script usa el comando de texto `data.fileExport`. Funciona (el F3Z resultante se ha reimportado en Fusion con los vínculos correctos), pero puede dejar de hacerlo con una actualización. Si falla, el error queda en el registro y el STEP se exporta igualmente.
 - **Cada F3Z genera un correo de Autodesk.** El F3Z se empaqueta en la nube de Autodesk, que envía un correo "is ready to be downloaded" por cada uno. No hace falta usar ese enlace: el fichero ya queda guardado en la carpeta de destino. Los F3D y STEP no envían ningún correo. Si tienes muchos ensamblajes, crea un filtro en tu correo para esos mensajes.
@@ -72,7 +73,6 @@ El registro y el mensaje final indican la duración de cada ejecución, así que
 
 Ideas previstas, sin fecha:
 
-- **Otros ficheros del proyecto:** imágenes, SVG, DXF, PDF y demás ficheros subidos al hub, copiados tal cual.
 - **Dibujos (planos):** copia de los dibujos 2D vinculados a los diseños.
 - **STL:** exportación en bloque como formato opcional.
 - **Electrónica.**

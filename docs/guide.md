@@ -87,12 +87,14 @@ FusionLocalBackup/
     └── Project name/
         ├── Part.f3d
         ├── Part.step
+        ├── Logo.svg
         └── Subfolder/
             ├── Assembly.f3z
             └── Assembly.step
 ```
 
 - **The designs**, each in its folder, with the same name as in Fusion.
+- **The other project files** (images, SVG, DXF, PDF...), copied as they are next to the designs.
 - **`fusion-local-backup.json`**: the index. It records which version of each design has been backed up. Do not delete or edit it: without it, the script does not know what you already have and exports everything again.
 - **`export_log_DATE.csv`**: the log of each run. It opens in Excel or any spreadsheet.
 
@@ -109,8 +111,8 @@ Each line of the CSV is a file, with one of these statuses:
 
 | Status | Meaning |
 |---|---|
-| **ok** | Exported. The detail shows the formats and the version, for example `F3D, STEP (v7)`. |
-| **skipped** | Not exported: it was already up to date, or it is not a 3D design (drawings, templates and the like). |
+| **ok** | Backed up. For a design, the detail shows the formats and the version, for example `F3D, STEP (v7)`. For any other file, `File copied as is (v1)`. |
+| **skipped** | Not backed up: it was already up to date, or it is a Fusion file type that is not backed up yet (drawings, drawing templates, electronics). |
 | **error** | It failed. The detail says which format and why. |
 | **not in cloud** | The design had been backed up but no longer exists in Fusion. The local copy is kept. |
 | **note** | Information that is not an exported design. Two cases: the previous run did not reach its end (it shows which design it was interrupted on), and, on Windows, a reading of the memory and handles Fusion is using, every 100 designs opened. |
@@ -153,8 +155,11 @@ No. It opens them, exports them and closes them without saving.
 **Does it keep the version history?**
 No. It keeps the latest version of each design.
 
+**Does it back up the images, SVG, DXF or PDF files in my project?**
+Yes. Any file that is not Fusion's own is copied as it is, into the same folder it has in the project and with the same version check: it is only downloaded again when you upload a new version. A STEP file you uploaded yourself is copied this way too.
+
 **Does it back up drawings and electronics?**
-Not yet. Only 3D designs. The rest is noted in the log as skipped.
+Not yet. Of Fusion's own files, only 3D designs are backed up. Drawings and electronics are noted in the log as skipped.
 
 **What if I choose a different destination folder?**
 A new full backup is made in that folder, with its own index.

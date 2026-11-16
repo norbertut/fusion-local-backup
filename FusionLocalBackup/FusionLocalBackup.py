@@ -52,6 +52,13 @@ MAX_PENDING_F3Z = 5
 # Index kept in the destination folder: what was exported, and which version.
 INDEX_NAME = 'fusion-local-backup.json'
 # Exports are written here first and moved once complete.
+# Fusion's own file types other than 3D designs. They cannot be downloaded
+# as they are and are not backed up yet (drawings, electronics...).
+NATIVE_EXTENSIONS = {'f2d', 'f2t', 'f3t', 'f3z', 'fbrd', 'fsch', 'flbr', 'fprj',
+                     'f3e', 'fcam', 'cam360'}
+# A file uploaded with one of these extensions can clash with what the script
+# exports from a design of the same name.
+EXPORT_EXTENSIONS = {'.f3d', '.f3z', '.step'}
 RESOURCE_LOG_EVERY = 100     # designs opened between resource notes in the log
 TMP_DIR = '_tmp'
 MARKER_NAME = 'current.txt'
@@ -104,9 +111,14 @@ TEXTS = {
         'es': 'Esperando {} F3Z de Autodesk...'},
     'progress': {'en': '%v of %m\n{}', 'es': '%v de %m\n{}'},
     'not_3d': {
-        'en': 'Not a 3D design (.{})',
-        'es': 'No es un diseño 3D (.{})'},
+        'en': 'Fusion file type not backed up yet (.{})',
+        'es': 'Tipo de fichero de Fusion que aún no se copia (.{})'},
     'up_to_date': {'en': 'Up to date (v{})', 'es': 'Al día (v{})'},
+    'file_copied': {'en': 'File copied as is (v{})', 'es': 'Fichero copiado tal cual (v{})'},
+    'err_download': {'en': 'Download: {}', 'es': 'Descarga: {}'},
+    'download_failed': {
+        'en': 'Fusion could not download the file',
+        'es': 'Fusion no pudo descargar el fichero'},
     'moved': {
         'en': 'Renamed or moved in Fusion; local files moved',
         'es': 'Renombrado o movido en Fusion; ficheros locales movidos'},
@@ -345,6 +357,51 @@ def unique_base(folder, base, used):
         n += 1
     used.add(os.path.join(folder, candidate).lower())
     return candidate
+
+
+def plain_file_name(data_file):
+    """Local name of a file that is not Fusion's own (image, SVG, PDF...).
+    In the hub its name normally carries the extension already."""
+    name = sanitize(data_file.name)
+    if not os.path.splitext(name)[1]:
+        extension = extension_of(data_file)
+        if extension:
+            name += '.' + extension
+    return name
+
+
+def unique_file(folder, file_name, used, used_files):
+    """Like unique_base, for a file copied as it is: no two files with the
+    same name, and no clash with the F3D/F3Z/STEP exported from a design."""
+    stem, extension = os.path.splitext(file_name)
+    exported = extension.lower() in EXPORT_EXTENSIONS
+
+    def taken(candidate_stem):
+        if os.path.join(folder, candidate_stem + extension).lower() in used_files:
+            return True
+        return exported and os.path.join(folder, candidate_stem).lower() in used
+
+    candidate = stem
+    n = 2
+    while taken(candidate):
+        candidate = '{} ({})'.format(stem, n)
+        n += 1
+    remember_file(folder, candidate + extension, used, used_files)
+    return candidate + extension
+
+
+def remember_file(folder, file_name, used, used_files):
+    stem, extension = os.path.splitext(file_name)
+    used_files.add(os.path.join(folder, file_name).lower())
+    if extension.lower() in EXPORT_EXTENSIONS:
+        used.add(os.path.join(folder, stem).lower())     # designs keep away
+
+
+def forget_file(folder, file_name, used, used_files):
+    stem, extension = os.path.splitext(file_name)
+    used_files.discard(os.path.join(folder, file_name).lower())
+    if extension.lower() in EXPORT_EXTENSIONS:
+        used.discard(os.path.join(folder, stem).lower())
 
 
 # --------------------------------------------------------------------------
@@ -598,8 +655,13 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
 
     index = load_index(out_root)
     designs = index['designs']
-    used = set(os.path.join(entry_folder(out_root, e), e['base']).lower()
-               for e in designs.values())
+    used = set()          # folder/base of the designs, to keep names unique
+    used_files = set()    # folder/name of the files copied as they are
+    for known in designs.values():
+        if known.get('kind') == 'file':
+            remember_file(entry_folder(out_root, known), known['base'], used, used_files)
+        else:
+            used.add(os.path.join(entry_folder(out_root, known), known['base']).lower())
     seen = set()
     shutil.rmtree(tmp_dir, ignore_errors=True)   # leftovers of an interrupted run
     pending = []      # F3Z requested from Autodesk and not yet received
@@ -663,6 +725,66 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             time.sleep(0.5)
             collect()
 
+    def copy_plain_file(data_file, parts, name, where):
+        file_id = data_file.id
+        version = data_file.versionNumber
+        seen.add(file_id)
+        folder = os.path.join(out_root, *parts)
+        path = '/'.join(parts)
+        entry = designs.get(file_id)
+        if entry and entry.get('kind') != 'file':
+            entry = None
+        moved = False
+
+        if entry and (entry['path'] != path or entry['name'] != name):
+            # Renamed or moved in Fusion: the local file follows.
+            old_folder = entry_folder(out_root, entry)
+            old_file = os.path.join(old_folder, entry['base'])
+            forget_file(old_folder, entry['base'], used, used_files)
+            new_name = unique_file(folder, plain_file_name(data_file), used, used_files)
+            os.makedirs(folder, exist_ok=True)
+            if os.path.exists(old_file):
+                os.replace(old_file, os.path.join(folder, new_name))
+            else:
+                entry.pop('file', None)
+            entry.update(name=name, path=path, base=new_name)
+            save_index(out_root, index)
+            moved = True
+        if not entry:
+            entry = {'kind': 'file', 'name': name, 'path': path,
+                     'base': unique_file(folder, plain_file_name(data_file),
+                                         used, used_files)}
+
+        final_path = os.path.join(folder, entry['base'])
+        info = entry.get('file')
+        if (not force and info and info.get('version') == version
+                and os.path.exists(final_path)):
+            detail = t('up_to_date').format(version)
+            if moved:
+                detail += ' | ' + t('moved')
+            record('skipped', where, detail)
+            return
+
+        os.makedirs(folder, exist_ok=True)
+        os.makedirs(tmp_dir, exist_ok=True)
+        # Downloaded under a plain temporary name: Fusion garbles accents
+        # and dots when it writes the name itself.
+        launched[0] += 1
+        tmp_path = os.path.join(
+            tmp_dir, 'download_{}{}'.format(launched[0], os.path.splitext(entry['base'])[1]))
+        def download():
+            if not data_file.download(tmp_path, None) or not os.path.exists(tmp_path):
+                raise RuntimeError(t('download_failed'))
+        fetch(download, 2)
+        os.replace(tmp_path, final_path)
+        entry['file'] = {'version': version}
+        designs[file_id] = entry
+        save_index(out_root, index)
+        detail = t('file_copied').format(version)
+        if moved:
+            detail += ' | ' + t('moved')
+        record('ok', where, detail)
+
     def note_resources(usage):
         append_log(log_path, [t('status_note'), '', t('resources').format(
             usage['gdi'], usage['gdi_limit'], usage['user'], usage['user_limit'],
@@ -697,8 +819,17 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
         except Exception:
             pass
 
-        if extension_of(data_file) != 'f3d':
-            record('skipped', where, t('not_3d').format(extension_of(data_file)))
+        extension = extension_of(data_file)
+        if extension in NATIVE_EXTENSIONS:
+            record('skipped', where, t('not_3d').format(extension))
+            continue
+        if extension != 'f3d':
+            # Not a Fusion file (image, SVG, DXF, PDF, an uploaded STEP...):
+            # copied as it is, with the same version check as the designs.
+            try:
+                copy_plain_file(data_file, parts, name, where)
+            except Exception as exc:
+                record('error', where, t('err_download').format(exc))
             continue
 
         design_id = data_file.id

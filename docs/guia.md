@@ -85,12 +85,14 @@ FusionLocalBackup/
     └── Nombre del proyecto/
         ├── Pieza.f3d
         ├── Pieza.step
+        ├── Logo.svg
         └── Subcarpeta/
             ├── Ensamblaje.f3z
             └── Ensamblaje.step
 ```
 
 - **Los diseños**, cada uno en su carpeta, con el mismo nombre que en Fusion.
+- **Los demás ficheros del proyecto** (imágenes, SVG, DXF, PDF...), copiados tal cual junto a los diseños.
 - **`fusion-local-backup.json`**: el índice. Anota qué versión de cada diseño está copiada. No lo borres ni lo edites: sin él, el script no sabe qué tienes ya y lo exporta todo de nuevo.
 - **`export_log_FECHA.csv`**: el registro de cada ejecución. Se abre con Excel o cualquier hoja de cálculo.
 
@@ -107,8 +109,8 @@ Cada línea del CSV es un fichero, con uno de estos estados:
 
 | Estado | Significado |
 |---|---|
-| **ok** | Exportado. El detalle indica los formatos y la versión, por ejemplo `F3D, STEP (v7)`. |
-| **omitido** | No se ha exportado: ya estaba al día, o no es un diseño 3D (planos, plantillas y similares). |
+| **ok** | Copiado. En un diseño, el detalle indica los formatos y la versión, por ejemplo `F3D, STEP (v7)`. En cualquier otro fichero, `Fichero copiado tal cual (v1)`. |
+| **omitido** | No se ha copiado: ya estaba al día, o es un tipo de fichero de Fusion que aún no se copia (dibujos, plantillas de dibujo, electrónica). |
 | **error** | Ha fallado. El detalle explica qué formato y por qué. |
 | **no está en la nube** | El diseño estaba copiado pero ya no existe en Fusion. La copia local se conserva. |
 | **aviso** | Información que no corresponde a un diseño exportado. Dos casos: la ejecución anterior no llegó a terminar (indica en qué diseño se interrumpió), y, en Windows, una lectura de la memoria e identificadores que usa Fusion, cada 100 diseños abiertos. |
@@ -151,8 +153,11 @@ No. Los abre, los exporta y los cierra sin guardar.
 **¿Guarda el historial de versiones?**
 No. Guarda la última versión de cada diseño.
 
+**¿Copia las imágenes, SVG, DXF o PDF que tengo en el proyecto?**
+Sí. Cualquier fichero que no sea propio de Fusion se copia tal cual, en la misma carpeta que tiene en el proyecto y con el mismo control de versiones: solo se vuelve a descargar si subes una versión nueva. Un STEP subido a mano también se copia así.
+
 **¿Copia los planos y la electrónica?**
-Todavía no. Solo diseños 3D. El resto queda anotado en el registro como omitido.
+Todavía no. De los ficheros propios de Fusion solo se copian los diseños 3D. Los dibujos y la electrónica quedan anotados en el registro como omitidos.
 
 **¿Qué pasa si elijo otra carpeta de destino?**
 Se hace una copia completa nueva en esa carpeta, con su propio índice.
