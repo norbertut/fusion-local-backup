@@ -167,10 +167,12 @@ TEXTS = {
     'done': {'en': 'Export finished.', 'es': 'Exportación terminada.'},
     'cancelled': {'en': 'Export cancelled.', 'es': 'Exportación cancelada.'},
     'summary': {
-        'en': '{}\n\nExported: {}\nUp to date or skipped: {}\nWith errors: {}\n'
-              'No longer in the cloud: {}\nDuration: {}\n\nFolder: {}\nLog: {}',
-        'es': '{}\n\nExportados: {}\nAl día u omitidos: {}\nCon errores: {}\n'
-              'Ya no están en la nube: {}\nDuración: {}\n\nCarpeta: {}\nRegistro: {}'},
+        'en': '{}\n\nExported: {}\nUp to date or skipped: {}\nRenamed or moved: {}\n'
+              'With errors: {}\nNo longer in the cloud: {}\nDuration: {}\n\n'
+              'Folder: {}\nLog: {}',
+        'es': '{}\n\nExportados: {}\nAl día u omitidos: {}\nRenombrados o movidos: {}\n'
+              'Con errores: {}\nYa no están en la nube: {}\nDuración: {}\n\n'
+              'Carpeta: {}\nRegistro: {}'},
     'err_dialog': {
         'en': 'Error creating the dialog:\n{}',
         'es': 'Error al crear el diálogo:\n{}'},
@@ -615,7 +617,7 @@ def relocate(out_root, entry, parts, name, used):
 def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
                scan_problems=None, log_path=None):
     log = []          # (status key, path, detail)
-    counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0}
+    counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0, 'moved': 0}
 
     def record(status, where, detail=''):
         log.append((status, where, detail))
@@ -750,6 +752,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             entry.update(name=name, path=path, base=new_name)
             save_index(out_root, index)
             moved = True
+            counts['moved'] += 1
         if not entry:
             entry = {'kind': 'file', 'name': name, 'path': path,
                      'base': unique_file(folder, plain_file_name(data_file),
@@ -845,6 +848,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
                 relocate(out_root, entry, parts, name, used)
                 save_index(out_root, index)
                 moved = True
+                counts['moved'] += 1
             if not entry:
                 entry = {'name': name, 'path': '/'.join(parts),
                          'base': unique_base(folder, sanitize(name), used)}
@@ -1101,7 +1105,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             ui.messageBox(
                 t('summary').format(
                     t('cancelled') if cancelled else t('done'),
-                    counts['ok'], counts['skipped'], counts['error'],
+                    counts['ok'], counts['skipped'], counts['moved'], counts['error'],
                     counts['gone'], format_duration(duration), out_root,
                     os.path.basename(log_path)),
                 CMD_NAME)
