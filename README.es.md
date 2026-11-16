@@ -70,7 +70,14 @@ El registro y el mensaje final indican la duración de cada ejecución, así que
 
 ## Hoja de ruta
 
-- Otros tipos de fichero (planos, electrónica, etc.).
+Ideas previstas, sin fecha:
+
+- **Otros ficheros del proyecto:** imágenes, SVG, DXF, PDF y demás ficheros subidos al hub, copiados tal cual.
+- **Dibujos (planos):** copia de los dibujos 2D vinculados a los diseños.
+- **STL:** exportación en bloque como formato opcional.
+- **Electrónica.**
+
+¿Echas algo en falta? Cuéntalo en la pestaña **Issues**.
 
 ## Licencia
 

@@ -70,7 +70,14 @@ The log and the final message show how long each run took, so after the first ba
 
 ## Roadmap
 
-- Other file types (drawings, electronics, etc.).
+Planned ideas, with no date:
+
+- **Other project files:** images, SVG, DXF, PDF and any other file uploaded to the hub, copied as is.
+- **Drawings:** backup of the 2D drawings linked to the designs.
+- **STL:** bulk export as an optional format.
+- **Electronics.**
+
+Missing something? Tell us in the **Issues** tab.
 
 ## License
 
