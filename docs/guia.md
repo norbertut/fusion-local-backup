@@ -111,8 +111,9 @@ Cada línea del CSV es un fichero, con uno de estos estados:
 | **omitido** | No se ha exportado: ya estaba al día, o no es un diseño 3D (planos, plantillas y similares). |
 | **error** | Ha fallado. El detalle explica qué formato y por qué. |
 | **no está en la nube** | El diseño estaba copiado pero ya no existe en Fusion. La copia local se conserva. |
+| **aviso** | Información que no corresponde a un diseño exportado. Dos casos: la ejecución anterior no llegó a terminar (indica en qué diseño se interrumpió), y, en Windows, una lectura de la memoria e identificadores que usa Fusion, cada 100 diseños abiertos. |
 
-La última línea indica la duración total.
+El registro se escribe línea a línea mientras avanza la copia, así que se conserva aunque Fusion se cierre a medias. La última línea indica la duración total.
 
 Si un ensamblaje usa una versión antigua de una pieza enlazada, el detalle lo avisa: `Usa referencias desactualizadas: Pieza v3 -> v12`. La copia es correcta; solo te informa de que ese ensamblaje está pendiente de actualizar en Fusion.
 
@@ -162,10 +163,14 @@ El script trabaja con el hub activo. Cambia de hub en el panel de datos de Fusio
 **He modificado una pieza, pero el F3Z del ensamblaje no se ha vuelto a exportar.**
 Es correcto. El F3Z guarda el ensamblaje tal como está guardado, con la versión de cada pieza que tiene fijada. Se volverá a exportar cuando abras el ensamblaje, aceptes la actualización y lo guardes. La pieza modificada sí se copia por su lado.
 
+**Aparece el aviso "Componentes externos sin resolver".**
+Es un aviso de Fusion, no del script. Sale al abrir un ensamblaje que enlaza a un componente que Fusion ya no encuentra. No detiene la copia y no hace falta cerrarlo. Ese ensamblaje se guarda sin el componente que falta.
+
 ## Si algo falla
 
 - **Un diseño da error.** Mira la columna de detalle del registro. El resto de diseños se exportan igualmente, y el que falló se reintenta en la siguiente ejecución.
 - **Un F3Z no llega.** Si Autodesk no lo entrega en diez minutos, se anota como error y el script continúa. Vuelve a ejecutarlo más tarde.
+- **Fusion se cierra durante una copia larga.** Puede ocurrir en copias de cientos de diseños seguidos: Fusion no libera toda la memoria de los documentos que abre y cierra. Vuelve a abrir Fusion y lanza la copia otra vez con la misma carpeta de destino: continúa donde se quedó y no repite lo ya copiado. El registro de la nueva ejecución empieza con un aviso que indica en qué diseño se interrumpió la anterior. Si se cierra siempre en el mismo diseño, ábrelo a mano en Fusion para comprobar si está dañado.
 - **Fusion parece parado al principio.** En proyectos grandes, el rastreo inicial puede llevar un rato. El contador de ficheros te indica que sigue trabajando.
 - **Quieres empezar de cero.** Marca "Exportar de nuevo aunque esté al día", o elige una carpeta de destino vacía.
 

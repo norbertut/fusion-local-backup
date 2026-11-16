@@ -52,7 +52,9 @@ MAX_PENDING_F3Z = 5
 # Index kept in the destination folder: what was exported, and which version.
 INDEX_NAME = 'fusion-local-backup.json'
 # Exports are written here first and moved once complete.
+RESOURCE_LOG_EVERY = 100     # designs opened between resource notes in the log
 TMP_DIR = '_tmp'
+MARKER_NAME = 'current.txt'
 # Remembers the last destination folder between runs.
 SETTINGS_PATH = os.path.join(os.path.expanduser('~'), '.fusion-local-backup-settings.json')
 
@@ -136,6 +138,13 @@ TEXTS = {
     'status_skipped': {'en': 'skipped', 'es': 'omitido'},
     'status_error': {'en': 'error', 'es': 'error'},
     'status_gone': {'en': 'not in cloud', 'es': 'no está en la nube'},
+    'status_note': {'en': 'note', 'es': 'aviso'},
+    'resources': {
+        'en': 'Fusion resources: GDI {}/{}, USER {}/{}, handles {}, memory {} MB',
+        'es': 'Recursos de Fusion: GDI {}/{}, USER {}/{}, identificadores {}, memoria {} MB'},
+    'interrupted': {
+        'en': 'The previous run stopped unexpectedly while working on this design',
+        'es': 'La ejecución anterior se interrumpió de forma inesperada mientras trabajaba en este diseño'},
     'duration': {'en': 'duration', 'es': 'duración'},
     'log_header': {
         'en': ['status', 'file', 'detail'],
@@ -206,6 +215,70 @@ def fetch(getter, attempts=3):
                 raise
             time.sleep(1.5)
             adsk.doEvents()
+
+
+def fusion_resources():
+    """Windows resources used by the Fusion process, or None when they cannot
+    be read (Mac, or any failure). Fusion does not give back all the memory
+    and handles of the documents it opens and closes; the figures go to the
+    log as a diagnostic for very long backups."""
+    if os.name != 'nt':
+        return None
+    try:
+        import ctypes
+        from ctypes import wintypes
+        kernel = ctypes.windll.kernel32
+        user = ctypes.windll.user32
+        kernel.GetCurrentProcess.restype = wintypes.HANDLE
+        process = kernel.GetCurrentProcess()
+        user.GetGuiResources.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+        user.GetGuiResources.restype = wintypes.DWORD
+
+        handles = wintypes.DWORD()
+        kernel.GetProcessHandleCount.argtypes = [
+            wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.GetProcessHandleCount(process, ctypes.byref(handles))
+
+        class Counters(ctypes.Structure):
+            _fields_ = [('cb', wintypes.DWORD),
+                        ('PageFaultCount', wintypes.DWORD),
+                        ('PeakWorkingSetSize', ctypes.c_size_t),
+                        ('WorkingSetSize', ctypes.c_size_t),
+                        ('QuotaPeakPagedPoolUsage', ctypes.c_size_t),
+                        ('QuotaPagedPoolUsage', ctypes.c_size_t),
+                        ('QuotaPeakNonPagedPoolUsage', ctypes.c_size_t),
+                        ('QuotaNonPagedPoolUsage', ctypes.c_size_t),
+                        ('PagefileUsage', ctypes.c_size_t),
+                        ('PeakPagefileUsage', ctypes.c_size_t)]
+        counters = Counters()
+        counters.cb = ctypes.sizeof(Counters)
+        psapi = ctypes.windll.psapi
+        psapi.GetProcessMemoryInfo.argtypes = [
+            wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]
+        psapi.GetProcessMemoryInfo(process, ctypes.byref(counters), counters.cb)
+
+        limits = {'gdi': 10000, 'user': 10000}     # Windows defaults
+        try:
+            import winreg
+            key = winreg.OpenKey(
+                winreg.HKEY_LOCAL_MACHINE,
+                r'SOFTWARE\Microsoft\Windows NT\CurrentVersion\Windows')
+            for name, value in (('gdi', 'GDIProcessHandleQuota'),
+                                ('user', 'USERProcessHandleQuota')):
+                try:
+                    limits[name] = int(winreg.QueryValueEx(key, value)[0])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        return {'gdi': int(user.GetGuiResources(process, 0)),
+                'user': int(user.GetGuiResources(process, 1)),
+                'gdi_limit': limits['gdi'], 'user_limit': limits['user'],
+                'handles': int(handles.value),
+                'memory_mb': int(counters.PagefileUsage >> 20)}
+    except Exception:
+        return None
 
 
 def scan_items(get_collection, where, problems):
@@ -483,13 +556,27 @@ def relocate(out_root, entry, parts, name, used):
 
 
 def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
-               scan_problems=None):
+               scan_problems=None, log_path=None):
     log = []          # (status key, path, detail)
     counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0}
 
     def record(status, where, detail=''):
         log.append((status, where, detail))
         counts[status] += 1
+        # Written line by line: if Fusion closes halfway, the log survives.
+        append_log(log_path, [t('status_' + status), where, detail])
+
+    # A marker left behind means the previous run did not reach its end
+    # (Fusion closed, power cut...). Say which design it was working on.
+    tmp_dir = os.path.join(out_root, TMP_DIR)
+    marker = os.path.join(tmp_dir, MARKER_NAME)
+    try:
+        with open(marker, encoding='utf-8') as handle:
+            interrupted = handle.read().strip()
+        if interrupted:
+            append_log(log_path, [t('status_note'), interrupted, t('interrupted')])
+    except Exception:
+        pass
 
     for where, detail in scan_problems or []:
         record('error', where, t('scan_error').format(detail))
@@ -514,7 +601,6 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
     used = set(os.path.join(entry_folder(out_root, e), e['base']).lower()
                for e in designs.values())
     seen = set()
-    tmp_dir = os.path.join(out_root, TMP_DIR)
     shutil.rmtree(tmp_dir, ignore_errors=True)   # leftovers of an interrupted run
     pending = []      # F3Z requested from Autodesk and not yet received
     launched = [0]
@@ -577,7 +663,14 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             time.sleep(0.5)
             collect()
 
+    def note_resources(usage):
+        append_log(log_path, [t('status_note'), '', t('resources').format(
+            usage['gdi'], usage['gdi_limit'], usage['user'], usage['user_limit'],
+            usage['handles'], usage['memory_mb'])])
+
     cancelled = False
+    opened = 0
+    logged_at = -1
     for position, (data_file, parts) in enumerate(targets):
         adsk.doEvents()
         if progress.wasCancelled:
@@ -585,10 +678,24 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             break
         collect()
 
+        # Fusion's own resources, noted now and then: if Fusion closes in the
+        # middle of a long backup, the log shows how worn the session was.
+        if opened != logged_at and opened % RESOURCE_LOG_EVERY == 0:
+            logged_at = opened
+            usage = fusion_resources()
+            if usage:
+                note_resources(usage)
+
         name = data_file.name
         where = '/'.join(parts + [name])
         progress.progressValue = position
         progress.message = t('progress').format(where)
+        try:
+            os.makedirs(tmp_dir, exist_ok=True)
+            with open(marker, 'w', encoding='utf-8') as handle:
+                handle.write(where)
+        except Exception:
+            pass
 
         if extension_of(data_file) != 'f3d':
             record('skipped', where, t('not_3d').format(extension_of(data_file)))
@@ -630,6 +737,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             os.makedirs(folder, exist_ok=True)
             os.makedirs(tmp_dir, exist_ok=True)
             doc = app.documents.open(data_file, True)
+            opened += 1
             design = adsk.fusion.Design.cast(
                 doc.products.itemByProductType('DesignProductType'))
             if not design:
@@ -714,17 +822,24 @@ def format_duration(seconds):
     return '{:d}:{:02d}:{:02d}'.format(seconds // 3600, seconds % 3600 // 60, seconds % 60)
 
 
-def write_log(out_root, log, duration=None):
+def start_log(out_root):
+    """Creates the log of this run, with its header, and returns its path."""
     stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     path = os.path.join(out_root, 'export_log_{}.csv'.format(stamp))
     with open(path, 'w', newline='', encoding='utf-8-sig') as handle:
-        writer = csv.writer(handle, delimiter=';')
-        writer.writerow(t('log_header'))
-        for status, where, detail in log:
-            writer.writerow([t('status_' + status), where, detail])
-        if duration is not None:
-            writer.writerow([t('duration'), '', format_duration(duration)])
+        csv.writer(handle, delimiter=';').writerow(t('log_header'))
     return path
+
+
+def append_log(path, row):
+    """Adds a line to the log right away. Never breaks the backup."""
+    if not path:
+        return
+    try:
+        with open(path, 'a', newline='', encoding='utf-8') as handle:
+            csv.writer(handle, delimiter=';').writerow(row)
+    except Exception:
+        pass
 
 
 # --------------------------------------------------------------------------
@@ -845,11 +960,12 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 ui.messageBox(t('nothing_found'))
                 return
 
+            log_path = start_log(out_root)
             log, counts, cancelled = run_export(
                 targets, out_root, want_archive, want_step, force, prefixes,
-                problems)
+                problems, log_path)
             duration = time.time() - started
-            log_path = write_log(out_root, log, duration)
+            append_log(log_path, [t('duration'), '', format_duration(duration)])
 
             ui.messageBox(
                 t('summary').format(

@@ -113,8 +113,9 @@ Each line of the CSV is a file, with one of these statuses:
 | **skipped** | Not exported: it was already up to date, or it is not a 3D design (drawings, templates and the like). |
 | **error** | It failed. The detail says which format and why. |
 | **not in cloud** | The design had been backed up but no longer exists in Fusion. The local copy is kept. |
+| **note** | Information that is not an exported design. Two cases: the previous run did not reach its end (it shows which design it was interrupted on), and, on Windows, a reading of the memory and handles Fusion is using, every 100 designs opened. |
 
-The last line shows the total duration.
+The log is written line by line as the backup progresses, so it is kept even if Fusion closes halfway. The last line shows the total duration.
 
 If an assembly uses an older version of a linked part, the detail says so: `Uses outdated references: Part v3 -> v12`. The backup is correct; it only tells you that the assembly is waiting to be updated in Fusion.
 
@@ -164,10 +165,14 @@ The script works with the active hub. Switch hubs in Fusion's data panel and run
 **I changed a part, but the assembly's F3Z was not exported again.**
 That is correct. The F3Z saves the assembly as it is saved, with the version of each part it is pinned to. It will be exported again once you open the assembly, accept the update and save it. The changed part is backed up on its own.
 
+**The "Unresolved external components" warning shows up.**
+It is a Fusion warning, not the script's. It appears when opening an assembly linked to a component that Fusion can no longer find. It does not stop the backup and you do not need to close it. That assembly is saved without the missing component.
+
 ## If something goes wrong
 
 - **A design gives an error.** Check the detail column of the log. The other designs are exported anyway, and the one that failed is retried on the next run.
 - **An F3Z does not arrive.** If Autodesk does not deliver it within ten minutes, it is logged as an error and the script carries on. Run it again later.
+- **Fusion closes during a long backup.** It can happen in backups of hundreds of designs in a row: Fusion does not release all the memory of the documents it opens and closes. Open Fusion again and run the backup once more with the same destination folder: it carries on where it stopped and does not repeat what is already backed up. The log of the new run starts with a note showing which design the previous run was working on. If it always closes on the same design, open that design by hand in Fusion to check whether it is damaged.
 - **Fusion seems stuck at the start.** In large projects the initial scan can take a while. The file counter tells you it is still working.
 - **You want to start from scratch.** Tick "Export again even if up to date", or choose an empty destination folder.
 
