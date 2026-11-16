@@ -142,6 +142,9 @@ TEXTS = {
               'exporting drawings, so leave it unticked with that license.',
         'es': 'Exporta cada dibujo 2D a PDF. La licencia personal de Fusion no permite '
               'exportar dibujos, así que con esa licencia déjalo sin marcar.'},
+    'design_off': {
+        'en': 'Design: tick a design format (Fusion archive or STEP) to back it up',
+        'es': 'Diseño: marca un formato de diseño (Archivo Fusion o STEP) para copiarlo'},
     'drawing_off': {
         'en': 'Drawing: tick "Drawings (PDF)" to back it up',
         'es': 'Dibujo: marca "Dibujos (PDF)" para copiarlo'},
@@ -971,7 +974,8 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             need_archive = want_archive and needs('archive')
             need_step = want_step and needs('step')
             if not need_archive and not need_step:
-                detail = t('up_to_date').format(version)
+                detail = (t('up_to_date').format(version) if want_archive or want_step
+                          else t('design_off'))
                 if moved:
                     detail += ' | ' + t('moved')
                 record('skipped', where, detail)
@@ -1172,7 +1176,8 @@ class ValidateHandler(adsk.core.ValidateInputsEventHandler):
         try:
             inputs = args.firingEvent.sender.commandInputs
             valid = bool(inputs.itemById(ID_FOLDER).value.strip())
-            valid = valid and (inputs.itemById(ID_F3D).value or inputs.itemById(ID_STEP).value)
+            valid = valid and (inputs.itemById(ID_F3D).value or inputs.itemById(ID_STEP).value
+                               or inputs.itemById(ID_DRAWINGS).value)
             valid = valid and bool(selected_projects(inputs))
             args.areInputsValid = bool(valid)
         except Exception:
