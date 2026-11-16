@@ -39,6 +39,7 @@ ID_ALL = 'allProjects'
 ID_PROJECTS = 'projects'
 ID_F3D = 'fmtF3d'
 ID_STEP = 'fmtStep'
+ID_DRAWINGS = 'fmtDrawings'
 ID_FOLDER = 'outFolder'
 ID_BROWSE = 'browse'
 ID_FORCE = 'forceExport'
@@ -54,7 +55,7 @@ INDEX_NAME = 'fusion-local-backup.json'
 # Exports are written here first and moved once complete.
 # Fusion's own file types other than 3D designs. They cannot be downloaded
 # as they are and are not backed up yet (drawings, electronics...).
-NATIVE_EXTENSIONS = {'f2d', 'f2t', 'f3t', 'f3z', 'fbrd', 'fsch', 'flbr', 'fprj',
+NATIVE_EXTENSIONS = {'f2t', 'f3t', 'f3z', 'fbrd', 'fsch', 'flbr', 'fprj',
                      'f3e', 'fcam', 'cam360'}
 # A file uploaded with one of these extensions can clash with what the script
 # exports from a design of the same name.
@@ -101,9 +102,11 @@ TEXTS = {
         'es': 'Exportar de nuevo aunque esté al día'},
     'info': {
         'en': 'Hub: {}. Fusion will open each design to export it; '
-              'do not use Fusion while the process is running.',
+              'do not use Fusion while the process is running. '
+              'Drawings to PDF: not available with Fusion for personal use.',
         'es': 'Hub: {}. Fusion abrirá cada diseño para exportarlo; '
-              'no uses Fusion mientras dura el proceso.'},
+              'no uses Fusion mientras dura el proceso. '
+              'Dibujos a PDF: no disponible con la licencia personal de Fusion.'},
     'cancel': {'en': 'Cancel', 'es': 'Cancelar'},
     'preparing': {'en': 'Preparing...', 'es': 'Preparando...'},
     'waiting_f3z': {
@@ -133,6 +136,31 @@ TEXTS = {
         'es': 'El documento no contiene un diseño'},
     'err_archive': {'en': 'Archive: {}', 'es': 'Archivo: {}'},
     'err_step': {'en': 'STEP: {}', 'es': 'STEP: {}'},
+    'fmt_drawings': {'en': 'Drawings (PDF)', 'es': 'Dibujos (PDF)'},
+    'drawings_tip': {
+        'en': 'Exports each 2D drawing as a PDF. Fusion for personal use does not allow '
+              'exporting drawings, so leave it unticked with that license.',
+        'es': 'Exporta cada dibujo 2D a PDF. La licencia personal de Fusion no permite '
+              'exportar dibujos, así que con esa licencia déjalo sin marcar.'},
+    'drawing_off': {
+        'en': 'Drawing: tick "Drawings (PDF)" to back it up',
+        'es': 'Dibujo: marca "Dibujos (PDF)" para copiarlo'},
+    'drawing_copied': {'en': 'PDF (v{})', 'es': 'PDF (v{})'},
+    'drawing_outdated': {
+        'en': ' | The drawing is not up to date with its design',
+        'es': ' | El dibujo no está actualizado respecto a su diseño'},
+    'err_drawing': {'en': 'Drawing: {}', 'es': 'Dibujo: {}'},
+    'drawing_failed': {
+        'en': 'Fusion could not export the drawing to PDF',
+        'es': 'Fusion no pudo exportar el dibujo a PDF'},
+    'drawings_blocked': {
+        'en': 'Drawing not exported: Fusion is rejecting the PDF export of drawings '
+              '(not allowed with the personal use license)',
+        'es': 'Dibujo no exportado: Fusion está rechazando la exportación de dibujos a PDF '
+              '(la licencia personal no la permite)'},
+    'unresolved': {
+        'en': ' | Has unresolved external components; the backup does not include them',
+        'es': ' | Tiene componentes externos sin resolver; la copia no los incluye'},
     'partial_ok': {'en': ' (succeeded: {})', 'es': ' (correcto: {})'},
     'f3d_failed': {
         'en': 'Fusion could not create the F3D',
@@ -338,16 +366,49 @@ def extension_of(data_file):
 
 
 def has_external_references(doc, data_file):
-    """True when the design links other designs (needs F3Z, not F3D)."""
+    """
+    (needs_f3z, unresolved) for an open design.
+
+    needs_f3z: the design links other designs, so it is saved as F3Z.
+    unresolved: the hub says it links other designs but none can be found
+    (deleted or archived). Autodesk never delivers an F3Z for those, so they
+    are saved as a plain F3D, without the missing components.
+    """
     try:
         if doc.documentReferences.count > 0:
-            return True
+            return True, False
     except Exception:
         pass
     try:
-        return bool(data_file.hasChildReferences)
+        if not data_file.hasChildReferences:
+            return False, False
     except Exception:
-        return False
+        return False, False
+    try:
+        if data_file.childReferences.count > 0:
+            return True, False
+    except Exception:
+        pass
+    return False, True
+
+
+def export_drawing_pdf(doc, path):
+    """Exports all the sheets of an open drawing to one PDF.
+    Returns True when the drawing is up to date with its design."""
+    import adsk.drawing
+    drawing_doc = adsk.drawing.DrawingDocument.cast(doc)
+    if not drawing_doc:
+        raise RuntimeError(t('drawing_failed'))
+    manager = drawing_doc.drawing.exportManager
+    options = manager.createPDFExportOptions(path)
+    options.openPDF = False
+    options.sheetsToExport = adsk.drawing.PDFSheetsExport.AllPDFSheetsExport
+    if not manager.execute(options) or not os.path.exists(path):
+        raise RuntimeError(t('drawing_failed'))
+    try:
+        return bool(drawing_doc.isUpToDate)
+    except Exception:
+        return True
 
 
 def unique_base(folder, base, used):
@@ -615,7 +676,7 @@ def relocate(out_root, entry, parts, name, used):
 
 
 def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
-               scan_problems=None, log_path=None):
+               scan_problems=None, log_path=None, want_drawings=False):
     log = []          # (status key, path, detail)
     counts = {'ok': 0, 'skipped': 0, 'error': 0, 'gone': 0, 'moved': 0}
 
@@ -640,7 +701,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
     for where, detail in scan_problems or []:
         record('error', where, t('scan_error').format(detail))
 
-    def report(where, version, done, errors, outdated, moved):
+    def report(where, version, done, errors, outdated, moved, unresolved=False):
         """Writes the log line of a design once all its exports are settled."""
         if errors:
             detail = '; '.join(errors)
@@ -651,6 +712,8 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
         detail = '{} (v{})'.format(', '.join(done), version)
         if outdated:
             detail += t('outdated_refs').format(', '.join(outdated))
+        if unresolved:
+            detail += t('unresolved')
         if moved:
             detail += ' | ' + t('moved')
         record('ok', where, detail)
@@ -660,7 +723,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
     used = set()          # folder/base of the designs, to keep names unique
     used_files = set()    # folder/name of the files copied as they are
     for known in designs.values():
-        if known.get('kind') == 'file':
+        if known.get('kind') in ('file', 'drawing'):
             remember_file(entry_folder(out_root, known), known['base'], used, used_files)
         else:
             used.add(os.path.join(entry_folder(out_root, known), known['base']).lower())
@@ -727,14 +790,20 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             time.sleep(0.5)
             collect()
 
-    def copy_plain_file(data_file, parts, name, where):
+    def copy_single(data_file, parts, name, where, kind, local_name, produce, ok_text):
+        """
+        Backs up something that ends up as one local file: a file that is
+        not Fusion's own (kind 'file', downloaded as it is) or a drawing
+        (kind 'drawing', exported to PDF). produce(tmp_path) writes the file
+        and may return text to add to the log line.
+        """
         file_id = data_file.id
         version = data_file.versionNumber
         seen.add(file_id)
         folder = os.path.join(out_root, *parts)
         path = '/'.join(parts)
         entry = designs.get(file_id)
-        if entry and entry.get('kind') != 'file':
+        if entry and entry.get('kind') != kind:
             entry = None
         moved = False
 
@@ -743,7 +812,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             old_folder = entry_folder(out_root, entry)
             old_file = os.path.join(old_folder, entry['base'])
             forget_file(old_folder, entry['base'], used, used_files)
-            new_name = unique_file(folder, plain_file_name(data_file), used, used_files)
+            new_name = unique_file(folder, local_name, used, used_files)
             os.makedirs(folder, exist_ok=True)
             if os.path.exists(old_file):
                 os.replace(old_file, os.path.join(folder, new_name))
@@ -754,9 +823,8 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             moved = True
             counts['moved'] += 1
         if not entry:
-            entry = {'kind': 'file', 'name': name, 'path': path,
-                     'base': unique_file(folder, plain_file_name(data_file),
-                                         used, used_files)}
+            entry = {'kind': kind, 'name': name, 'path': path,
+                     'base': unique_file(folder, local_name, used, used_files)}
 
         final_path = os.path.join(folder, entry['base'])
         info = entry.get('file')
@@ -770,23 +838,46 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
 
         os.makedirs(folder, exist_ok=True)
         os.makedirs(tmp_dir, exist_ok=True)
-        # Downloaded under a plain temporary name: Fusion garbles accents
-        # and dots when it writes the name itself.
+        # Written under a plain temporary name: Fusion garbles accents and
+        # dots when it writes the name itself.
         launched[0] += 1
         tmp_path = os.path.join(
-            tmp_dir, 'download_{}{}'.format(launched[0], os.path.splitext(entry['base'])[1]))
-        def download():
-            if not data_file.download(tmp_path, None) or not os.path.exists(tmp_path):
-                raise RuntimeError(t('download_failed'))
-        fetch(download, 2)
+            tmp_dir, 'single_{}{}'.format(launched[0], os.path.splitext(entry['base'])[1]))
+        extra = produce(tmp_path) or ''
         os.replace(tmp_path, final_path)
         entry['file'] = {'version': version}
         designs[file_id] = entry
         save_index(out_root, index)
-        detail = t('file_copied').format(version)
+        detail = t(ok_text).format(version) + extra
         if moved:
             detail += ' | ' + t('moved')
         record('ok', where, detail)
+
+    def copy_plain_file(data_file, parts, name, where):
+        def produce(tmp_path):
+            def download():
+                if not data_file.download(tmp_path, None) or not os.path.exists(tmp_path):
+                    raise RuntimeError(t('download_failed'))
+            fetch(download, 2)
+        copy_single(data_file, parts, name, where, 'file',
+                    plain_file_name(data_file), produce, 'file_copied')
+
+    drawings = {'done': 0, 'failed': 0, 'opened': 0}
+
+    def copy_drawing(data_file, parts, name, where):
+        def produce(tmp_path):
+            doc = app.documents.open(data_file, True)
+            drawings['opened'] += 1
+            try:
+                up_to_date = export_drawing_pdf(doc, tmp_path)
+            finally:
+                try:
+                    doc.close(False)
+                except Exception:
+                    pass
+            return '' if up_to_date else t('drawing_outdated')
+        copy_single(data_file, parts, name, where, 'drawing',
+                    sanitize(name) + '.pdf', produce, 'drawing_copied')
 
     def note_resources(usage):
         append_log(log_path, [t('status_note'), '', t('resources').format(
@@ -823,6 +914,23 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             pass
 
         extension = extension_of(data_file)
+        if extension == 'f2d':
+            if not want_drawings:
+                seen.add(data_file.id)      # a PDF made earlier is not "gone"
+                record('skipped', where, t('drawing_off'))
+            elif drawings['failed'] >= 2 and not drawings['done']:
+                # Fusion rejects every drawing (personal use license): there
+                # is no point in opening the rest, ten seconds each.
+                seen.add(data_file.id)
+                record('skipped', where, t('drawings_blocked'))
+            else:
+                try:
+                    copy_drawing(data_file, parts, name, where)
+                    drawings['done'] += 1
+                except Exception as exc:
+                    drawings['failed'] += 1
+                    record('error', where, t('err_drawing').format(exc))
+            continue
         if extension in NATIVE_EXTENSIONS:
             record('skipped', where, t('not_3d').format(extension))
             continue
@@ -882,10 +990,12 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
             done = []
             errors = []
             job = None
+            unresolved = False
 
             if need_archive:
                 try:
-                    if has_external_references(doc, data_file):
+                    needs_f3z, unresolved = has_external_references(doc, data_file)
+                    if needs_f3z:
                         # Requested now and picked up later: Autodesk takes a
                         # while to pack it and there is no need to wait idle.
                         wait_until_pending(MAX_PENDING_F3Z - 1)
@@ -926,7 +1036,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
                 job.update(done=done, errors=errors, outdated=outdated, moved=moved)
                 pending.append(job)
             else:
-                report(where, version, done, errors, outdated, moved)
+                report(where, version, done, errors, outdated, moved, unresolved)
         except Exception as exc:
             record('error', where, str(exc))
         finally:
@@ -1016,6 +1126,9 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
 
             inputs.addBoolValueInput(ID_F3D, t('fmt_archive'), True, '', True)
             inputs.addBoolValueInput(ID_STEP, 'STEP', True, '', True)
+            drawings_input = inputs.addBoolValueInput(
+                ID_DRAWINGS, t('fmt_drawings'), True, '', bool(settings.get('drawings', False)))
+            drawings_input.tooltip = t('drawings_tip')
 
             default_folder = settings.get('folder') or os.path.join(
                 os.path.expanduser('~'), 'FusionLocalBackup')
@@ -1024,7 +1137,7 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             browse.text = t('browse')
             inputs.addBoolValueInput(ID_FORCE, t('force'), True, '', False)
             inputs.addTextBoxCommandInput(
-                ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
+                ID_INFO, '', t('info').format(app.data.activeHub.name), 4, True)
 
             for handler_class, event in (
                     (InputChangedHandler, command.inputChanged),
@@ -1074,6 +1187,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
                 os.path.expanduser(inputs.itemById(ID_FOLDER).value.strip()))
             want_archive = inputs.itemById(ID_F3D).value
             want_step = inputs.itemById(ID_STEP).value
+            want_drawings = inputs.itemById(ID_DRAWINGS).value
             force = inputs.itemById(ID_FORCE).value
             all_projects = inputs.itemById(ID_ALL).value
             projects = selected_projects(inputs)
@@ -1083,6 +1197,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             save_settings({
                 'folder': out_root,
                 'all': all_projects,
+                'drawings': want_drawings,
                 'projects': [state['projects'][i].id for i in range(listed.count)
                              if listed.item(i).isSelected]})
 
@@ -1098,7 +1213,7 @@ class ExecuteHandler(adsk.core.CommandEventHandler):
             log_path = start_log(out_root)
             log, counts, cancelled = run_export(
                 targets, out_root, want_archive, want_step, force, prefixes,
-                problems, log_path)
+                problems, log_path, want_drawings)
             duration = time.time() - started
             append_log(log_path, [t('duration'), '', format_duration(duration)])
 

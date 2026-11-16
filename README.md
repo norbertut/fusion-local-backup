@@ -9,6 +9,7 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 ## What it does
 
 - **Formats:** Fusion archive (F3D, or F3Z when the design has external references) and STEP.
+- **Drawings (optional):** each 2D drawing is exported to PDF, with all its sheets.
 - **Other project files:** images, SVG, DXF, PDF and any other file you uploaded to the hub are copied as they are, with no conversion.
 - **Scope:** tick the projects you want to back up, or all the projects in the active hub. The script remembers your selection, so the next backup is open and OK.
 - **Structure:** mirrors `Hub / Project / Folders / Design` on disk.
@@ -60,7 +61,9 @@ The log and the final message show how long each run took, so after the first ba
 ## Known limitations
 
 - Fusion stays busy for the whole process.
-- Of Fusion's own files, only 3D designs (`.f3d`) are exported. Drawings and electronics are not backed up yet; they are noted in the log as skipped.
+- **Drawings are saved as PDF**, not in Fusion's editable format, and only if you tick the option. **It does not work with Fusion for personal use:** that license does not allow exporting drawings.
+- Drawing templates and electronics are not backed up yet; they are noted in the log as skipped.
+- A design linked to components that no longer exist is saved without them, and the log says so.
 - "All projects" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.
 - **F3Z relies on an undocumented command.** Fusion's public API cannot export F3Z, so the script uses the `data.fileExport` text command. It works (the resulting F3Z has been re-imported into Fusion with its links intact), but an update could break it. If it fails, the error is logged and the STEP is still exported.
 - **Each F3Z triggers an email from Autodesk.** The F3Z is packaged in Autodesk's cloud, which sends an "is ready to be downloaded" email for each one. You do not need that link: the file is already saved in the destination folder. F3D and STEP exports send no email. If you have many assemblies, set up a mail filter for those messages.
@@ -73,7 +76,7 @@ The log and the final message show how long each run took, so after the first ba
 
 Planned ideas, with no date:
 
-- **Drawings:** backup of the 2D drawings linked to the designs.
+- **Drawings as DWG or DXF**, in addition to PDF.
 - **STL:** bulk export as an optional format.
 - **Electronics.**
 

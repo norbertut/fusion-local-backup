@@ -52,6 +52,7 @@ To update it later, download the new version and replace the files in the folder
 | **Select the projects** | A list of projects with checkboxes. Tick only the ones you want to back up. It is hidden when the previous option is ticked. |
 | **Fusion archive (F3D / F3Z)** | Saves each design in Fusion's own format, which keeps the history and can be opened and edited again. |
 | **STEP** | Also saves a STEP copy, a neutral format any CAD program can open. |
+| **Drawings (PDF)** | Exports each 2D drawing to a PDF with all its sheets. Unticked by default. Do not tick it if you use Fusion for personal use: that license does not allow exporting drawings. |
 | **Destination folder** | Where the backup is saved. Use **Browse...** to pick it. |
 | **Export again even if up to date** | Exports everything selected again, changed or not. Normally left unticked. |
 
@@ -112,7 +113,7 @@ Each line of the CSV is a file, with one of these statuses:
 | Status | Meaning |
 |---|---|
 | **ok** | Backed up. For a design, the detail shows the formats and the version, for example `F3D, STEP (v7)`. For any other file, `File copied as is (v1)`. |
-| **skipped** | Not backed up: it was already up to date, or it is a Fusion file type that is not backed up yet (drawings, drawing templates, electronics). |
+| **skipped** | Not backed up: it was already up to date, it is a drawing and "Drawings (PDF)" is unticked, or it is a Fusion file type that is not backed up yet (drawing templates, electronics). |
 | **error** | It failed. The detail says which format and why. |
 | **not in cloud** | The design had been backed up but no longer exists in Fusion. The local copy is kept. |
 | **note** | Information that is not an exported design. Two cases: the previous run did not reach its end (it shows which design it was interrupted on), and, on Windows, a reading of the memory and handles Fusion is using, every 100 designs opened. |
@@ -158,8 +159,14 @@ No. It keeps the latest version of each design.
 **Does it back up the images, SVG, DXF or PDF files in my project?**
 Yes. Any file that is not Fusion's own is copied as it is, into the same folder it has in the project and with the same version check: it is only downloaded again when you upload a new version. A STEP file you uploaded yourself is copied this way too.
 
-**Does it back up drawings and electronics?**
-Not yet. Of Fusion's own files, only 3D designs are backed up. Drawings and electronics are noted in the log as skipped.
+**Does it back up drawings?**
+Yes, if you tick "Drawings (PDF)". Each drawing is saved as a PDF with all its sheets, next to the designs. The editable Fusion drawing is not saved, because Fusion does not allow exporting it. If the drawing is not up to date with its design, the log says so.
+
+**I use Fusion for personal use. Can I back up drawings?**
+No. The personal use license only allows printing drawings, not exporting them. Leave the box unticked. If you tick it, the script tries the first two drawings and, once Fusion rejects them, stops trying the rest. Everything else is backed up as usual.
+
+**Does it back up electronics?**
+Not yet. They are noted in the log as skipped, like drawing templates.
 
 **What if I choose a different destination folder?**
 A new full backup is made in that folder, with its own index.
@@ -176,6 +183,7 @@ It is a Fusion warning, not the script's. It appears when opening an assembly li
 ## If something goes wrong
 
 - **A design gives an error.** Check the detail column of the log. The other designs are exported anyway, and the one that failed is retried on the next run.
+- **A design reports "unresolved external components".** It links to a component that no longer exists or is archived. It is saved as an F3D without that component, and the log says so. To fix it, open the design in Fusion and remove or replace the broken component.
 - **An F3Z does not arrive.** If Autodesk does not deliver it within ten minutes, it is logged as an error and the script carries on. Run it again later.
 - **Fusion closes during a long backup.** It can happen in backups of hundreds of designs in a row: Fusion does not release all the memory of the documents it opens and closes. Open Fusion again and run the backup once more with the same destination folder: it carries on where it stopped and does not repeat what is already backed up. The log of the new run starts with a note showing which design the previous run was working on. If it always closes on the same design, open that design by hand in Fusion to check whether it is damaged.
 - **Fusion seems stuck at the start.** In large projects the initial scan can take a while. The file counter tells you it is still working.
