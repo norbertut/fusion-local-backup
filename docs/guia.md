@@ -13,7 +13,18 @@ Esta guía explica cómo instalar el script, hacer la primera copia y mantenerla
 
 ## Instalación
 
-Descarga el ZIP de la [última versión](https://github.com/norbertut/fusion-local-backup/releases/latest) (el fichero `FusionLocalBackup-v….zip` del apartado Assets) y descomprímelo. Dentro encontrarás una carpeta llamada `FusionLocalBackup`, con `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. Esa carpeta es el script.
+**Descarga [FusionLocalBackup.zip](https://github.com/norbertut/fusion-local-backup/releases/latest/download/FusionLocalBackup.zip)** (última versión) y descomprímelo. Dentro hay una carpeta `FusionLocalBackup` con dos ficheros, `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. **Esa carpeta, y solo esa, es la que se instala.**
+
+> Si descargas desde la página de la release, elige **FusionLocalBackup.zip**, no "Source code". Si tienes una carpeta llamada `fusion-local-backup-main`, es el código completo del repositorio: no la instales entera, usa la carpeta `FusionLocalBackup` que hay dentro.
+
+Una vez instalado, debe quedar así, con los dos ficheros directamente dentro de `FusionLocalBackup`:
+
+```
+Scripts/
+└── FusionLocalBackup/
+    ├── FusionLocalBackup.py
+    └── FusionLocalBackup.manifest
+```
 
 Hay dos formas de instalarlo. Elige la que prefieras.
 
@@ -184,6 +195,7 @@ Es un aviso de Fusion, no del script. Sale al abrir un ensamblaje que enlaza a u
 - **Un diseño avisa de "componentes externos sin resolver".** Enlaza a un componente que ya no existe o está archivado. Se guarda como F3D sin ese componente y el registro lo indica. Para arreglarlo, abre el diseño en Fusion y suprime o reemplaza el componente roto.
 - **Un F3Z no llega.** Si Autodesk no lo entrega en diez minutos, se anota como error y el script continúa. Vuelve a ejecutarlo más tarde.
 - **Fusion se cierra durante una copia larga.** Puede ocurrir en copias de cientos de diseños seguidos: Fusion no libera toda la memoria de los documentos que abre y cierra. Vuelve a abrir Fusion y lanza la copia otra vez con la misma carpeta de destino: continúa donde se quedó y no repite lo ya copiado. El registro de la nueva ejecución empieza con un aviso que indica en qué diseño se interrumpió la anterior. Si se cierra siempre en el mismo diseño, ábrelo a mano en Fusion para comprobar si está dañado.
+- **El script no aparece en la lista de Secuencias de comandos y complementos.** Casi siempre es que se ha copiado la carpeta equivocada. `FusionLocalBackup.py` tiene que estar directamente dentro de la carpeta `FusionLocalBackup`, no en una subcarpeta como `fusion-local-backup-main/FusionLocalBackup`. Revisa la estructura del apartado de instalación.
 - **Fusion parece parado al principio.** En proyectos grandes, el rastreo inicial puede llevar un rato. El contador de ficheros te indica que sigue trabajando.
 - **Quieres empezar de cero.** Marca "Exportar de nuevo aunque esté al día", o elige una carpeta de destino vacía.
 

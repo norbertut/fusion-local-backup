@@ -25,7 +25,11 @@ Script para Autodesk Fusion que guarda una copia local de tus proyectos: saca lo
 
 ## Instalación
 
-Descarga el ZIP de la [última versión](https://github.com/norbertut/fusion-local-backup/releases/latest) y descomprímelo. Dentro está la carpeta `FusionLocalBackup`, que es el script. Hay dos formas de instalarlo:
+**Descarga [FusionLocalBackup.zip](https://github.com/norbertut/fusion-local-backup/releases/latest/download/FusionLocalBackup.zip)** (última versión) y descomprímelo. Dentro hay una carpeta `FusionLocalBackup` con dos ficheros, `FusionLocalBackup.py` y `FusionLocalBackup.manifest`. **Esa carpeta, y solo esa, es la que se instala.**
+
+> Si descargas desde la página de la release, elige **FusionLocalBackup.zip**, no "Source code". Si tienes una carpeta llamada `fusion-local-backup-main`, es el código completo del repositorio: no la instales entera, usa la carpeta `FusionLocalBackup` que hay dentro.
+
+Hay dos formas de instalarlo:
 
 **Opción A: en la carpeta de scripts de Fusion.** Fusion lo reconoce directamente.
 

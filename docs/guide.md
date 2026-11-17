@@ -13,7 +13,18 @@ This guide explains how to install the script, make your first backup and keep i
 
 ## Installation
 
-Download the ZIP of the [latest release](https://github.com/norbertut/fusion-local-backup/releases/latest) (the `FusionLocalBackup-v….zip` file under Assets) and unzip it. Inside you will find a folder called `FusionLocalBackup`, with `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. That folder is the script.
+**Download [FusionLocalBackup.zip](https://github.com/norbertut/fusion-local-backup/releases/latest/download/FusionLocalBackup.zip)** (latest release) and unzip it. Inside is a `FusionLocalBackup` folder with two files, `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. **That folder, and only that folder, is what you install.**
+
+> If you download from the release page, pick **FusionLocalBackup.zip**, not "Source code". If you have a folder called `fusion-local-backup-main`, that is the whole repository: do not install it as is, use the `FusionLocalBackup` folder inside it.
+
+Once installed, it must look like this, with both files directly inside `FusionLocalBackup`:
+
+```
+Scripts/
+└── FusionLocalBackup/
+    ├── FusionLocalBackup.py
+    └── FusionLocalBackup.manifest
+```
 
 There are two ways to install it. Pick the one you prefer.
 
@@ -186,6 +197,7 @@ It is a Fusion warning, not the script's. It appears when opening an assembly li
 - **A design reports "unresolved external components".** It links to a component that no longer exists or is archived. It is saved as an F3D without that component, and the log says so. To fix it, open the design in Fusion and remove or replace the broken component.
 - **An F3Z does not arrive.** If Autodesk does not deliver it within ten minutes, it is logged as an error and the script carries on. Run it again later.
 - **Fusion closes during a long backup.** It can happen in backups of hundreds of designs in a row: Fusion does not release all the memory of the documents it opens and closes. Open Fusion again and run the backup once more with the same destination folder: it carries on where it stopped and does not repeat what is already backed up. The log of the new run starts with a note showing which design the previous run was working on. If it always closes on the same design, open that design by hand in Fusion to check whether it is damaged.
+- **The script does not show up in the Scripts and Add-Ins list.** It is almost always the wrong folder. `FusionLocalBackup.py` must be directly inside the `FusionLocalBackup` folder, not in a subfolder such as `fusion-local-backup-main/FusionLocalBackup`. Check the structure in the installation section.
 - **Fusion seems stuck at the start.** In large projects the initial scan can take a while. The file counter tells you it is still working.
 - **You want to start from scratch.** Tick "Export again even if up to date", or choose an empty destination folder.
 

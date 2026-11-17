@@ -25,7 +25,11 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 
 ## Installation
 
-Download the ZIP of the [latest release](https://github.com/norbertut/fusion-local-backup/releases/latest) and unzip it. Inside is the `FusionLocalBackup` folder, which is the script. There are two ways to install it:
+**Download [FusionLocalBackup.zip](https://github.com/norbertut/fusion-local-backup/releases/latest/download/FusionLocalBackup.zip)** (latest release) and unzip it. Inside is a `FusionLocalBackup` folder with two files, `FusionLocalBackup.py` and `FusionLocalBackup.manifest`. **That folder, and only that folder, is what you install.**
+
+> If you download from the release page, pick **FusionLocalBackup.zip**, not "Source code". If you have a folder called `fusion-local-backup-main`, that is the whole repository: do not install it as is, use the `FusionLocalBackup` folder inside it.
+
+There are two ways to install it:
 
 **Option A: in Fusion's scripts folder.** Fusion picks it up directly.
 
