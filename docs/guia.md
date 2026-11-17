@@ -83,7 +83,7 @@ Puedes pulsar **Cancelar** en cualquier momento. El script termina el diseño qu
 
 Al acabar aparece un resumen:
 
-![Resumen final de una copia](img/resumen.png)
+![Resumen final de una copia](img/resumen.jpg)
 
 ## Qué encontrarás en la carpeta de destino
 
