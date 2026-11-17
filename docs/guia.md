@@ -8,7 +8,7 @@ Esta guía explica cómo instalar el script, hacer la primera copia y mantenerla
 
 - Necesitas Autodesk Fusion instalado y con tu sesión iniciada.
 - El script funciona en Windows y en Mac.
-- La copia ocupa espacio en disco: cada diseño se guarda en dos formatos (archivo de Fusion y STEP).
+- La copia ocupa espacio en disco. Cada diseño se puede guardar en dos formatos, archivo de Fusion y STEP; en el diálogo eliges si quieres los dos o solo uno. Con los dos ocupa más.
 - La primera copia de un proyecto grande es larga. Elige un momento en el que no necesites Fusion.
 
 ## Instalación

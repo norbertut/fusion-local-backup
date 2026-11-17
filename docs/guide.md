@@ -8,7 +8,7 @@ This guide explains how to install the script, make your first backup and keep i
 
 - You need Autodesk Fusion installed and signed in.
 - The script works on Windows and on Mac.
-- The backup takes disk space: each design is saved in two formats (Fusion archive and STEP).
+- The backup takes disk space. Each design can be saved in two formats, Fusion archive and STEP; in the dialog you choose both or just one. Both take more space.
 - The first backup of a large project takes a long time. Pick a moment when you do not need Fusion.
 
 ## Installation
