@@ -21,7 +21,7 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 - **F3Z in the background:** Autodesk packs each F3Z in the cloud, which takes tens of seconds. The script requests it, moves on to the next design and puts each F3Z in place when it arrives, with at most 5 requests on their way.
 - **Safe writes:** each file is exported to a temporary folder and moved when complete, so an interrupted run never leaves a half-written file in place.
 - **Language:** the interface is in Spanish when Fusion runs in Spanish, and in English otherwise.
-- **Windows and Mac:** tested on both systems.
+- **Windows and Mac, full or personal license:** tested in every case.
 
 ## Installation
 
@@ -66,7 +66,7 @@ The log and the final message show how long each run took, so after the first ba
 ## Known limitations
 
 - Fusion stays busy for the whole process.
-- **Drawings are saved as PDF**, not in Fusion's editable format, and only if you tick the option. **It does not work with Fusion for personal use:** that license does not allow exporting drawings.
+- **Drawings are saved as PDF**, not in Fusion's editable format, and only if you tick the option. It also works with Fusion for personal use.
 - Drawing templates and electronics are not backed up yet; they are noted in the log as skipped.
 - A design linked to components that no longer exist is saved without them, and the log says so.
 - "All projects" means every project in the active hub. For another hub, switch to it in the data panel and run the script again.

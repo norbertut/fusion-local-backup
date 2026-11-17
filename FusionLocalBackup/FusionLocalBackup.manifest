@@ -5,7 +5,7 @@
 	"description": {
 		"": "Local backup of your Fusion projects: designs as F3D/F3Z and STEP, drawings as PDF and other files as they are."
 	},
-	"version":"1.2.1",
+	"version":"1.2.2",
 	"supportedOS": "windows|mac",
 	"editEnabled": true
 }

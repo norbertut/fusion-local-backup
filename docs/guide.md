@@ -63,7 +63,7 @@ To update it later, download the new version and replace the files in the folder
 | **Select the projects** | A list of projects with checkboxes. Tick only the ones you want to back up. It is hidden when the previous option is ticked. |
 | **Fusion archive (F3D / F3Z)** | Saves each design in Fusion's own format, which keeps the history and can be opened and edited again. |
 | **STEP** | Also saves a STEP copy, a neutral format any CAD program can open. |
-| **Drawings (PDF)** | Exports each 2D drawing to a PDF with all its sheets. Unticked by default. Do not tick it if you use Fusion for personal use: that license does not allow exporting drawings. |
+| **Drawings (PDF)** | Exports each 2D drawing to a PDF with all its sheets. Unticked by default. Opening each drawing takes a few seconds, so it makes the backup longer if you have many. |
 | **Destination folder** | Where the backup is saved. Use **Browse...** to pick it. |
 | **Export again even if up to date** | Exports everything selected again, changed or not. Normally left unticked. |
 
@@ -174,7 +174,7 @@ Yes. Any file that is not Fusion's own is copied as it is, into the same folder 
 Yes, if you tick "Drawings (PDF)". Each drawing is saved as a PDF with all its sheets, next to the designs. The editable Fusion drawing is not saved, because Fusion does not allow exporting it. If the drawing is not up to date with its design, the log says so.
 
 **I use Fusion for personal use. Can I back up drawings?**
-No. The personal use license only allows printing drawings, not exporting them. Leave the box unticked. If you tick it, the script tries the first two drawings and, once Fusion rejects them, stops trying the rest. Everything else is backed up as usual.
+Yes. It has been tested with the personal use license and drawings are exported to PDF just as with a full license. Autodesk could change this in an update; if Fusion ever rejects drawings, the script stops trying after the first two and the rest of the backup carries on as usual.
 
 **Does it back up electronics?**
 Not yet. They are noted in the log as skipped, like drawing templates.
@@ -195,7 +195,7 @@ It is a Fusion warning, not the script's. It appears when opening an assembly li
 
 - **A design gives an error.** Check the detail column of the log. The other designs are exported anyway, and the one that failed is retried on the next run.
 - **A design reports "unresolved external components".** It links to a component that no longer exists or is archived. It is saved as an F3D without that component, and the log says so. To fix it, open the design in Fusion and remove or replace the broken component.
-- **An F3Z does not arrive.** If Autodesk does not deliver it within ten minutes, it is logged as an error and the script carries on. Run it again later.
+- **An F3Z does not arrive.** If Autodesk does not deliver it within ten minutes, it is logged as an error and the script carries on. The most common cause is an assembly with outdated references: open it in Fusion, update the references (the warning shows up when you open it), save it and run the backup again. If that is not it, run it again later.
 - **Fusion closes during a long backup.** It can happen in backups of hundreds of designs in a row: Fusion does not release all the memory of the documents it opens and closes. Open Fusion again and run the backup once more with the same destination folder: it carries on where it stopped and does not repeat what is already backed up. The log of the new run starts with a note showing which design the previous run was working on. If it always closes on the same design, open that design by hand in Fusion to check whether it is damaged.
 - **The script does not show up in the Scripts and Add-Ins list.** It is almost always the wrong folder. `FusionLocalBackup.py` must be directly inside the `FusionLocalBackup` folder, not in a subfolder such as `fusion-local-backup-main/FusionLocalBackup`. Check the structure in the installation section.
 - **Fusion seems stuck at the start.** In large projects the initial scan can take a while. The file counter tells you it is still working.

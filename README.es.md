@@ -21,7 +21,7 @@ Script para Autodesk Fusion que guarda una copia local de tus proyectos: saca lo
 - **F3Z en segundo plano:** Autodesk empaqueta cada F3Z en la nube y tarda decenas de segundos. El script lo pide, sigue con el siguiente diseño y coloca cada F3Z cuando llega, con un máximo de 5 peticiones en curso.
 - **Escritura segura:** cada fichero se exporta a una carpeta temporal y se mueve al terminar, de modo que una ejecución interrumpida nunca deja un fichero a medias en su sitio.
 - **Idioma:** la interfaz sale en español si Fusion está en español, y en inglés en cualquier otro caso.
-- **Windows y Mac:** probado en los dos sistemas.
+- **Windows y Mac, licencia completa o personal:** probado en todos los casos.
 
 ## Instalación
 
@@ -66,7 +66,7 @@ El registro y el mensaje final indican la duración de cada ejecución, así que
 ## Limitaciones conocidas
 
 - Fusion queda ocupado mientras dura el proceso.
-- **Los dibujos se guardan como PDF**, no en su formato editable de Fusion, y solo si marcas la opción. **Con la licencia personal de Fusion no funciona:** esa licencia no permite exportar dibujos.
+- **Los dibujos se guardan como PDF**, no en su formato editable de Fusion, y solo si marcas la opción. Funciona también con la licencia personal de Fusion.
 - Las plantillas de dibujo y la electrónica todavía no se copian; quedan anotadas en el registro como omitidas.
 - Un diseño con enlaces a componentes que ya no existen se guarda sin ellos, y el registro lo avisa.
 - "Todos los proyectos" significa todos los del hub activo. Para otro hub, cámbialo en el panel de datos y vuelve a ejecutar.

@@ -102,11 +102,9 @@ TEXTS = {
         'es': 'Exportar de nuevo aunque esté al día'},
     'info': {
         'en': 'Hub: {}. Fusion will open each design to export it; '
-              'do not use Fusion while the process is running. '
-              'Drawings to PDF: not available with Fusion for personal use.',
+              'do not use Fusion while the process is running.',
         'es': 'Hub: {}. Fusion abrirá cada diseño para exportarlo; '
-              'no uses Fusion mientras dura el proceso. '
-              'Dibujos a PDF: no disponible con la licencia personal de Fusion.'},
+              'no uses Fusion mientras dura el proceso.'},
     'cancel': {'en': 'Cancel', 'es': 'Cancelar'},
     'preparing': {'en': 'Preparing...', 'es': 'Preparando...'},
     'waiting_f3z': {
@@ -138,10 +136,8 @@ TEXTS = {
     'err_step': {'en': 'STEP: {}', 'es': 'STEP: {}'},
     'fmt_drawings': {'en': 'Drawings (PDF)', 'es': 'Dibujos (PDF)'},
     'drawings_tip': {
-        'en': 'Exports each 2D drawing as a PDF. Fusion for personal use does not allow '
-              'exporting drawings, so leave it unticked with that license.',
-        'es': 'Exporta cada dibujo 2D a PDF. La licencia personal de Fusion no permite '
-              'exportar dibujos, así que con esa licencia déjalo sin marcar.'},
+        'en': 'Exports each 2D drawing as a PDF with all its sheets.',
+        'es': 'Exporta cada dibujo 2D a un PDF con todas sus hojas.'},
     'design_off': {
         'en': 'Design: tick a design format (Fusion archive or STEP) to back it up',
         'es': 'Diseño: marca un formato de diseño (Archivo Fusion o STEP) para copiarlo'},
@@ -157,10 +153,10 @@ TEXTS = {
         'en': 'Fusion could not export the drawing to PDF',
         'es': 'Fusion no pudo exportar el dibujo a PDF'},
     'drawings_blocked': {
-        'en': 'Drawing not exported: Fusion is rejecting the PDF export of drawings '
-              '(not allowed with the personal use license)',
-        'es': 'Dibujo no exportado: Fusion está rechazando la exportación de dibujos a PDF '
-              '(la licencia personal no la permite)'},
+        'en': 'Drawing not exported: Fusion rejected the first drawings, '
+              'so the rest are not tried in this run',
+        'es': 'Dibujo no exportado: Fusion rechazó los primeros dibujos, '
+              'así que no se intentan los demás en esta ejecución'},
     'unresolved': {
         'en': ' | Has unresolved external components; the backup does not include them',
         'es': ' | Tiene componentes externos sin resolver; la copia no los incluye'},
@@ -943,7 +939,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
                 seen.add(data_file.id)      # a PDF made earlier is not "gone"
                 record('skipped', where, t('drawing_off'))
             elif drawings['failed'] >= 2 and not drawings['done']:
-                # Fusion rejects every drawing (personal use license): there
+                # Fusion rejects every drawing (for whatever reason): there
                 # is no point in opening the rest, ten seconds each.
                 seen.add(data_file.id)
                 record('skipped', where, t('drawings_blocked'))
@@ -1163,7 +1159,7 @@ class CreatedHandler(adsk.core.CommandCreatedEventHandler):
             browse.text = t('browse')
             inputs.addBoolValueInput(ID_FORCE, t('force'), True, '', False)
             inputs.addTextBoxCommandInput(
-                ID_INFO, '', t('info').format(app.data.activeHub.name), 4, True)
+                ID_INFO, '', t('info').format(app.data.activeHub.name), 3, True)
 
             for handler_class, event in (
                     (InputChangedHandler, command.inputChanged),

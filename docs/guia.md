@@ -63,7 +63,7 @@ Para actualizarlo más adelante, descarga la versión nueva y sustituye los fich
 | **Selecciona los proyectos** | Lista de proyectos con casillas. Marca solo los que quieres copiar. Se oculta si marcas la opción anterior. |
 | **Archivo Fusion (F3D / F3Z)** | Guarda cada diseño en el formato propio de Fusion, que conserva el historial y se puede volver a abrir y editar. |
 | **STEP** | Guarda además una copia en STEP, un formato neutro que abre cualquier programa de CAD. |
-| **Dibujos (PDF)** | Exporta cada dibujo 2D a un PDF con todas sus hojas. Viene desmarcada. No la marques si usas la licencia personal de Fusion: esa licencia no permite exportar dibujos. |
+| **Dibujos (PDF)** | Exporta cada dibujo 2D a un PDF con todas sus hojas. Viene desmarcada. Abrir cada dibujo lleva unos segundos, así que alarga la copia si tienes muchos. |
 | **Carpeta de destino** | Dónde se guarda la copia. Usa **Examinar...** para elegirla. |
 | **Exportar de nuevo aunque esté al día** | Vuelve a exportar todo lo seleccionado, haya cambiado o no. Normalmente va desmarcada. |
 
@@ -172,7 +172,7 @@ Sí. Cualquier fichero que no sea propio de Fusion se copia tal cual, en la mism
 Sí, si marcas "Dibujos (PDF)". Cada dibujo se guarda como un PDF con todas sus hojas, junto a los diseños. No se guarda el dibujo editable de Fusion, porque Fusion no permite exportarlo. Si el dibujo no está actualizado respecto a su diseño, el registro lo avisa.
 
 **Tengo la licencia personal de Fusion. ¿Puedo copiar los dibujos?**
-No. La licencia personal solo permite imprimir los dibujos, no exportarlos. Deja la casilla sin marcar. Si la marcas, el script lo intenta con los dos primeros dibujos y, al ver que Fusion los rechaza, deja de intentarlo con el resto. Todo lo demás se copia con normalidad.
+Sí. Se ha probado con la licencia personal y los dibujos se exportan a PDF igual que con una licencia completa. Autodesk podría cambiarlo en una actualización; si algún día Fusion rechaza los dibujos, el script deja de intentarlo tras los dos primeros y el resto de la copia sigue con normalidad.
 
 **¿Copia la electrónica?**
 Todavía no. Queda anotada en el registro como omitida, igual que las plantillas de dibujo.
@@ -193,7 +193,7 @@ Es un aviso de Fusion, no del script. Sale al abrir un ensamblaje que enlaza a u
 
 - **Un diseño da error.** Mira la columna de detalle del registro. El resto de diseños se exportan igualmente, y el que falló se reintenta en la siguiente ejecución.
 - **Un diseño avisa de "componentes externos sin resolver".** Enlaza a un componente que ya no existe o está archivado. Se guarda como F3D sin ese componente y el registro lo indica. Para arreglarlo, abre el diseño en Fusion y suprime o reemplaza el componente roto.
-- **Un F3Z no llega.** Si Autodesk no lo entrega en diez minutos, se anota como error y el script continúa. Vuelve a ejecutarlo más tarde.
+- **Un F3Z no llega.** Si Autodesk no lo entrega en diez minutos, se anota como error y el script continúa. La causa más habitual es un ensamblaje con referencias desactualizadas: ábrelo en Fusion, actualiza las referencias (el aviso aparece al abrirlo), guárdalo y vuelve a lanzar la copia. Si no es eso, vuelve a ejecutarlo más tarde.
 - **Fusion se cierra durante una copia larga.** Puede ocurrir en copias de cientos de diseños seguidos: Fusion no libera toda la memoria de los documentos que abre y cierra. Vuelve a abrir Fusion y lanza la copia otra vez con la misma carpeta de destino: continúa donde se quedó y no repite lo ya copiado. El registro de la nueva ejecución empieza con un aviso que indica en qué diseño se interrumpió la anterior. Si se cierra siempre en el mismo diseño, ábrelo a mano en Fusion para comprobar si está dañado.
 - **El script no aparece en la lista de Secuencias de comandos y complementos.** Casi siempre es que se ha copiado la carpeta equivocada. `FusionLocalBackup.py` tiene que estar directamente dentro de la carpeta `FusionLocalBackup`, no en una subcarpeta como `fusion-local-backup-main/FusionLocalBackup`. Revisa la estructura del apartado de instalación.
 - **Fusion parece parado al principio.** En proyectos grandes, el rastreo inicial puede llevar un rato. El contador de ficheros te indica que sigue trabajando.
