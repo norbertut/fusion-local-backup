@@ -21,6 +21,7 @@ New here? The **[user guide](docs/guide.md)** walks you through installation, th
 - **F3Z in the background:** Autodesk packs each F3Z in the cloud, which takes tens of seconds. The script requests it, moves on to the next design and puts each F3Z in place when it arrives, with at most 5 requests on their way.
 - **Safe writes:** each file is exported to a temporary folder and moved when complete, so an interrupted run never leaves a half-written file in place.
 - **Language:** the interface is in Spanish when Fusion runs in Spanish, and in English otherwise.
+- **Windows and Mac:** tested on both systems.
 
 ## Installation
 

@@ -21,6 +21,7 @@ Script para Autodesk Fusion que guarda una copia local de tus proyectos: saca lo
 - **F3Z en segundo plano:** Autodesk empaqueta cada F3Z en la nube y tarda decenas de segundos. El script lo pide, sigue con el siguiente diseño y coloca cada F3Z cuando llega, con un máximo de 5 peticiones en curso.
 - **Escritura segura:** cada fichero se exporta a una carpeta temporal y se mueve al terminar, de modo que una ejecución interrumpida nunca deja un fichero a medias en su sitio.
 - **Idioma:** la interfaz sale en español si Fusion está en español, y en inglés en cualquier otro caso.
+- **Windows y Mac:** probado en los dos sistemas.
 
 ## Instalación
 
