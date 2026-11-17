@@ -5,7 +5,7 @@
 	"description": {
 		"": "Local backup of your designs as F3D/F3Z and STEP, by project."
 	},
-	"version":"1.2.0",
+	"version":"1.2.1",
 	"supportedOS": "windows|mac",
 	"editEnabled": true
 }

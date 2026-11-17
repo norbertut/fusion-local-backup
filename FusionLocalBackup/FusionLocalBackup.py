@@ -502,19 +502,40 @@ def launch_f3z(job_dir):
     app.executeTextCommand('data.fileExport f3z "{}"'.format(job_dir))
 
 
-def arrived_f3z(job_dir):
+def valid_zip(path):
+    """True once the zip has been written to the end."""
+    try:
+        if not zipfile.is_zipfile(path):
+            return False
+        with zipfile.ZipFile(path) as archive:
+            archive.namelist()
+        return True
+    except Exception:
+        return False
+
+
+def arrived_f3z(job_dir, design_name=''):
     """Path of the finished F3Z in job_dir, or None while it is on its way."""
     try:
         names = [n for n in os.listdir(job_dir) if n.lower().endswith('.f3z')]
-        if not names:
-            return None
-        path = os.path.join(job_dir, names[0])
-        # A zip only opens once it has been written to the end.
-        if not zipfile.is_zipfile(path):
-            return None
-        with zipfile.ZipFile(path) as archive:
-            archive.namelist()
-        return path
+        if names:
+            path = os.path.join(job_dir, names[0])
+            return path if valid_zip(path) else None
+
+        # Fusion names the file after the design. On Windows a ':' in that
+        # name ("gear 1:6") turns the file into an empty "gear 1" with the
+        # F3Z hidden in an NTFS stream called "6.f3z". It can still be read
+        # by its full name, so it is copied out to a normal file.
+        if os.name == 'nt' and ':' in design_name:
+            stream = os.path.join(job_dir, design_name + '.f3z')
+            if os.path.exists(stream):
+                recovered = os.path.join(job_dir, '_recovered.f3z.part')
+                shutil.copyfile(stream, recovered)
+                if valid_zip(recovered):
+                    final = os.path.join(job_dir, '_recovered.f3z')
+                    os.replace(recovered, final)
+                    return final
+        return None
     except Exception:
         return None
 
@@ -776,7 +797,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
     def collect():
         """Puts in place the F3Z files that have arrived."""
         for job in list(pending):
-            path = arrived_f3z(job['dir'])
+            path = arrived_f3z(job['dir'], job.get('name', ''))
             if path:
                 if settle(job, f3z_path=path):
                     pending.remove(job)
@@ -1009,6 +1030,7 @@ def run_export(targets, out_root, want_archive, want_step, force, prefixes=None,
                         launch_f3z(job_dir)
                         job = {'id': design_id, 'entry': entry, 'folder': folder,
                                'base': base, 'version': version, 'where': where,
+                               'name': name,
                                'dir': job_dir, 'started': time.time()}
                     else:
                         tmp_path = os.path.join(tmp_dir, base + '.f3d')
