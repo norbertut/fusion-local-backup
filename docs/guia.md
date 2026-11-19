@@ -180,6 +180,14 @@ Todavía no. Queda anotada en el registro como omitida, igual que las plantillas
 **¿Qué pasa si elijo otra carpeta de destino?**
 Se hace una copia completa nueva en esa carpeta, con su propio índice.
 
+**¿Puedo mover la copia a otro disco u ordenador y seguir actualizándola?**
+Sí, y sigue siendo incremental. El índice (`fusion-local-backup.json`) guarda las rutas de forma relativa a la carpeta de copia, así que no depende de dónde esté. Para que funcione:
+
+1. Mueve la carpeta de copia completa: la que contiene `fusion-local-backup.json` y la carpeta con el nombre de tu hub. No renombres ni reorganices nada de dentro.
+2. En la siguiente copia, pulsa **Examinar...** y elige la carpeta en su nueva ubicación, la que contiene el JSON. El script recuerda la última carpeta usada, así que la primera vez seguirá proponiendo la antigua.
+
+Funciona también entre Windows y Mac, y con discos externos o unidades de red. Si falta algún fichero donde el índice dice que está, el script no lo da por perdido: simplemente lo vuelve a exportar.
+
 **Tengo varios hubs. ¿Cómo los copio?**
 El script trabaja con el hub activo. Cambia de hub en el panel de datos de Fusion y vuelve a ejecutarlo.
 

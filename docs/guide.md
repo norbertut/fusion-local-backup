@@ -182,6 +182,14 @@ Not yet. They are noted in the log as skipped, like drawing templates.
 **What if I choose a different destination folder?**
 A new full backup is made in that folder, with its own index.
 
+**Can I move the backup to another drive or computer and keep updating it?**
+Yes, and it stays incremental. The index (`fusion-local-backup.json`) stores paths relative to the backup folder, so it does not depend on where that folder is. To make it work:
+
+1. Move the whole backup folder: the one that contains `fusion-local-backup.json` and the folder named after your hub. Do not rename or reorganize anything inside it.
+2. On the next backup, click **Browse...** and choose the folder in its new location, the one that contains the JSON. The script remembers the last folder used, so the first time it will still suggest the old one.
+
+It also works between Windows and Mac, and with external drives or network drives. If a file is missing where the index says it is, the script does not treat it as lost: it simply exports it again.
+
 **I have several hubs. How do I back them up?**
 The script works with the active hub. Switch hubs in Fusion's data panel and run it again.
 
