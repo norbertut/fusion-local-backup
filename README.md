@@ -81,6 +81,9 @@ The log and the final message show how long each run took, so after the first ba
 
 Planned ideas, with no date:
 
+- **Add-in with its own button** in the Fusion toolbar, instead of running it from the Scripts window.
+- **Periodic reminder** to run the backup, for example weekly.
+- **Option to choose whether the other project files** (images, SVG, DXF...) are backed up.
 - **Drawings as DWG or DXF**, in addition to PDF.
 - **STL:** bulk export as an optional format.
 - **Electronics.**

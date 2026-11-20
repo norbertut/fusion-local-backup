@@ -81,6 +81,9 @@ El registro y el mensaje final indican la duración de cada ejecución, así que
 
 Ideas previstas, sin fecha:
 
+- **Complemento con botón propio** en la barra de Fusion, en lugar de lanzarlo desde la ventana de scripts.
+- **Recordatorio periódico** para hacer la copia, por ejemplo semanal.
+- **Casilla para elegir si se copian los otros ficheros** del proyecto (imágenes, SVG, DXF...).
 - **Dibujos en DWG o DXF**, además del PDF.
 - **STL:** exportación en bloque como formato opcional.
 - **Electrónica.**
